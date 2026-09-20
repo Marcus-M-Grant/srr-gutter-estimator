@@ -384,7 +384,7 @@ input:focus, select:focus, button:focus-visible {
   font-size: 0.88rem;
 }
 .chain__row:last-child { border-bottom: 0; }
-.chain__label { color: var(--ink-soft); font-weight: 600; }
+.chain__label { color: var(--ink-soft); font-weight: 600; min-width: 0; }
 .chain__value {
   font-weight: 700;
   color: var(--blue-deep);
@@ -402,7 +402,8 @@ input:focus, select:focus, button:focus-visible {
 
 /* ---------- editable chain extras ---------- */
 .chain__input {
-  width: 72px;
+  /* Narrow enough that the trailing "ft" is never clipped on a small phone. */
+  width: 64px;
   flex: none;
   padding: 4px 7px;
   font-size: 0.92rem;
@@ -652,6 +653,10 @@ table.lines--plain td { border-bottom: 1px solid rgba(0,0,0,.07); padding: 5px 1
 }
 
 /* ---------- wider screens ---------- */
+@media (min-width: 420px) {
+  .chain__input { width: 76px; }
+}
+
 @media (min-width: 620px) {
   .hero { padding: 48px 0 42px; }
   .table-scroll { margin: 0; padding: 0; }
