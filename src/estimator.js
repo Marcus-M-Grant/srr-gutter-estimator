@@ -179,12 +179,17 @@ export function estimate(config, inputs) {
       });
       return;
     }
-    if (!row.active || !Number.isFinite(row.price)) {
+    // A price of zero or blank is an ABSENT price, not a free part. Billing a
+    // line at $0.00 would quietly understate the job; listing it as unpriced
+    // says so out loud.
+    if (!row.active || !Number.isFinite(row.price) || row.price <= 0) {
       unpriced.push({
         code: row.code, name: row.name, qty: quantity, uom: row.uom,
         reason: row.isPlaceholder
           ? 'placeholder part, not yet priced'
-          : 'item is switched off in the pricing sheet',
+          : !Number.isFinite(row.price) || row.price <= 0
+            ? 'no price set in the pricing sheet'
+            : 'item is switched off in the pricing sheet',
       });
       return;
     }

@@ -191,12 +191,15 @@ test('5. with all TBD- rows inactive the estimate still totals, and lists the ga
   assert.equal(r.subtotal, 5780.80);
 });
 
-test('5b. activating a TBD row moves it out of unpriced and into the total', () => {
+test('5b. pricing and activating a TBD row moves it into the total', () => {
+  // Activating alone is not enough any more: the placeholder rows ship with no
+  // Price at all, so a real cost has to be entered too. That mirrors what the
+  // owner actually does in the sheet - fill in Unit Cost, then set Active.
   const config = loadRealConfig();
   const patched = {
     ...config,
     pricing: config.pricing.map((r) =>
-      r.code === 'TBD-Alum-Hanger' ? { ...r, active: true } : r),
+      r.code === 'TBD-Alum-Hanger' ? { ...r, active: true, price: 7.27 } : r),
   };
   const r = estimate(patched, {
     measuredLF: 200, stories: 2, material: 'Aluminum', profile: 'K Style 5"',
@@ -362,4 +365,39 @@ test('dropdowns are built from the sheet, not hardcoded', () => {
   assert.ok(alum.includes('Half Round 6"'));
   assert.ok(alum.includes(config.rules.default_gutter_profile),
     'the default profile rule must name a profile that actually exists');
+});
+
+test('a blank or zero price is treated as absent, never as free', () => {
+  // The TBD- placeholder rows ship with no Price at all, because inventing one
+  // would put a fabricated figure on a customer's estimate. A missing price
+  // must surface as unpriced rather than quietly billing the line at $0.00.
+  const config = loadRealConfig();
+
+  for (const price of [NaN, 0, -5]) {
+    const patched = {
+      ...config,
+      pricing: config.pricing.map((r) =>
+        r.code === 'TBD-Alum-Hanger' ? { ...r, active: true, price } : r),
+    };
+    const r = estimate(patched, {
+      measuredLF: 200, stories: 2, material: 'Aluminum', profile: 'K Style 5"',
+    });
+
+    assert.equal(lineFor(r, 'TBD-Alum-Hanger'), undefined,
+      `price ${price} must not be billed`);
+    const listed = r.unpriced.find((u) => u.code === 'TBD-Alum-Hanger');
+    assert.ok(listed, `price ${price} must be listed as unpriced`);
+    assert.equal(listed.qty, 110);
+    assert.equal(r.subtotal, 5780.80, 'the total must be unchanged');
+  }
+});
+
+test('the shipped snapshot carries no invented placeholder prices', () => {
+  const config = loadRealConfig();
+  const placeholders = config.pricing.filter((r) => r.isPlaceholder);
+  assert.equal(placeholders.length, 13);
+  for (const p of placeholders) {
+    assert.ok(!Number.isFinite(p.price),
+      `${p.code} must ship with no price, got ${p.price}`);
+  }
 });

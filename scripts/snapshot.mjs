@@ -183,6 +183,23 @@ async function main() {
     if (Number.isFinite(n)) row[valCol] = String(n);
   }
 
+  // The TBD- rows are placeholders for parts nobody has costed yet. They ship
+  // with no Price on purpose - publishing an invented figure under SRR's name
+  // is worse than publishing none. Shout if one reappears.
+  const codeCol = pricing[0].findIndex((h) => String(h).trim() === 'Code');
+  const invented = pricing.slice(1).filter((r) =>
+    String(r[codeCol] ?? '').startsWith('TBD-') && parseRuleNumber(r[priceCol]) > 0);
+  if (invented.length) {
+    console.warn([
+      '',
+      `WARNING: ${invented.length} placeholder row(s) came back with a price, ` +
+        `e.g. ${invented[0][codeCol]}.`,
+      'Those costs are guesses, not SRR figures. Clear the Unit Cost cell for',
+      'each TBD- row in the sheet, or replace it with the real cost.',
+      '',
+    ].join('\n'));
+  }
+
   await writeFile(join(ROOT, 'data', 'pricing.csv'), toCsv(pricing), 'utf8');
   await writeFile(join(ROOT, 'data', 'rules.csv'), toCsv(rules), 'utf8');
 

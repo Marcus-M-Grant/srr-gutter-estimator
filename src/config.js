@@ -121,7 +121,9 @@ export function normalizePricing(rawRows) {
       const row = { ...raw };
       for (const col of INTERNAL_PRICING_COLUMNS) delete row[col];
 
-      const price = Number(String(row.Price ?? '').replace(/[$,\s]/g, ''));
+      // parseRuleNumber returns NaN for an empty cell, where Number('') would
+      // return 0. A blank Price means "not priced yet", not "free".
+      const price = parseRuleNumber(row.Price);
       return {
         code: String(row.Code ?? '').trim(),
         name: String(row.Name ?? '').trim(),
