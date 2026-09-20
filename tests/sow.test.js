@@ -1,0 +1,200 @@
+/**
+ * Statement of work tests.
+ *
+ * The SOW is a pure function of the estimate result plus a caller-supplied
+ * date, so all of this runs with no network, no DOM and no clock.
+ */
+
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+
+import { buildConfig } from '../src/config.js';
+import { estimate } from '../src/estimator.js';
+import {
+  generateSow, sowFilename, slugifyAddress, dateStamp, formatDate, addDays, wrap,
+} from '../src/sow.js';
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+
+const config = buildConfig(
+  readFileSync(join(ROOT, 'data', 'pricing.csv'), 'utf8'),
+  readFileSync(join(ROOT, 'data', 'rules.csv'), 'utf8'),
+  'test'
+);
+
+const ADDRESS = '5031 Fair Avenue, North Hollywood, CA 91601';
+const DATE = new Date(2026, 8, 19); // 19 September 2026, local time
+
+function worked(overrides = {}) {
+  return estimate(config, {
+    measuredLF: 200, lfSource: 'manual', stories: 2,
+    material: 'Aluminum', profile: 'K Style 5"',
+    guards: false, runs: 1, corners: 4, ...overrides,
+  });
+}
+
+const sowFor = (r = worked()) =>
+  generateSow(config, r, { address: ADDRESS, date: DATE });
+
+/**
+ * The document is hard wrapped at 72 columns, so a phrase the reader sees as
+ * one sentence may straddle a newline. Prose assertions run against this
+ * whitespace-normalised view; the 72 column limit is asserted on its own
+ * below, so nothing is lost by relaxing it here.
+ */
+const flat = (r) => sowFor(r).replace(/\s+/g, ' ');
+
+// ---------------------------------------------------------------------------
+
+test('every line is within the 72 column page width', () => {
+  for (const line of sowFor().split('\n')) {
+    assert.ok(line.length <= 72,
+      `line is ${line.length} chars, over the 72 column width:\n${line}`);
+  }
+});
+
+test('the header carries company, phone and licence from the rules', () => {
+  const text = sowFor();
+  assert.match(text, /SPECIALIST ROOFING & REPAIR/);
+  assert.match(text, /GUTTER INSTALLATION - STATEMENT OF WORK/);
+  assert.ok(text.includes(config.rules.company_phone), 'phone must appear');
+  assert.ok(text.includes(`License #${config.rules.company_license}`));
+});
+
+test('the address and both dates appear', () => {
+  const text = sowFor();
+  assert.ok(text.includes(ADDRESS));
+  assert.ok(text.includes('September 19, 2026'), 'issue date');
+  // 30 day validity from 19 Sep 2026 -> 19 Oct 2026
+  assert.ok(text.includes('October 19, 2026'), 'expiry date');
+  assert.match(text, /30 days/);
+});
+
+test('the total, band and every line item total are present and correct', () => {
+  const r = worked();
+  const text = sowFor(r);
+
+  assert.ok(text.includes('$5,800.00'), 'total');
+  assert.ok(text.includes('$5,220.00'), 'low band');
+  assert.ok(text.includes('$6,380.00'), 'high band');
+
+  for (const line of r.lines) {
+    assert.ok(text.includes(line.code), `code ${line.code} must appear`);
+    const amount = line.lineTotal.toLocaleString('en-US',
+      { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    assert.ok(text.includes(amount), `amount ${amount} for ${line.code}`);
+  }
+  assert.ok(text.includes('3,599.20'), 'gutter line');
+  assert.ok(text.includes('2,181.60'), 'downspout line');
+});
+
+test('the quantities in the scope paragraph match the estimate', () => {
+  const text = flat(worked());
+  assert.match(text, /220 linear feet of aluminum K Style 5" rain gutter/);
+  assert.match(text, /6 downspouts/);
+  assert.match(text, /120 linear feet/);
+  assert.match(text, /over 2 stories/);
+  assert.match(text, /110 hidden hangers/);
+  assert.match(text, /18 elbows/);
+  assert.match(text, /4 mitered corners/);
+  assert.match(text, /2 end caps/);
+  assert.match(text, /24 downspout straps/);
+});
+
+test('unpriced items are listed, and clearly excluded from the total', () => {
+  const r = worked();
+  assert.ok(r.unpriced.length > 0, 'fixture must have unpriced items');
+  const text = sowFor(r);
+
+  assert.match(text, /INCLUDED IN THE WORK, NOT YET PRICED/);
+  assert.match(text, /NOT included in the total/);
+  for (const u of r.unpriced) {
+    assert.ok(text.includes(u.code), `unpriced code ${u.code} must be listed`);
+  }
+});
+
+test('assumptions record how the footage was derived', () => {
+  const manual = flat(worked({ lfSource: 'manual' }));
+  assert.match(manual, /Gutter footage: 200 LF, supplied by the customer/);
+  assert.match(flat(worked({ lfSource: 'osm' })),
+    /measured from the building outline on file for this address/);
+  assert.match(flat(worked({ lfSource: 'sqft' })),
+    /calculated from the home square footage and story count supplied by the customer/);
+
+  assert.match(manual, /Waste factor: 10%, giving 220 billable LF/);
+  assert.match(manual, /Stories: 2/);
+  assert.match(manual, /Downspouts: 1 downspout per 35 LF, minimum 2; 10 ft per story/);
+  assert.match(manual, /Corners counted: 4/);
+  assert.match(manual, /Separate runs: 1/);
+});
+
+test('exclusions and the not-a-quote disclaimer are always present', () => {
+  const text = flat();
+  assert.match(text, /EXCLUSIONS/);
+  assert.match(text, /fascia board/);
+  assert.match(text, /Permits/);
+  assert.match(text, /VALIDITY AND DISCLAIMER/);
+  assert.match(text, /ESTIMATE, not a binding quote and not a contract/);
+  assert.match(text, /subject to a site visit|after a site visit/);
+});
+
+test('gutter guards appear in the scope only when selected', () => {
+  const off = flat(worked({ guards: false }));
+  assert.ok(!/Install \d+ linear feet of gutter guard/.test(off));
+  assert.match(off, /Gutter guards: Not included/);
+
+  const on = flat(worked({ guards: true }));
+  assert.match(on, /Install 220 linear feet of gutter guard/);
+  assert.match(on, /Gutter guards: Included/);
+});
+
+test('a job at the floor says so', () => {
+  const small = estimate(config, {
+    measuredLF: 12, stories: 1, material: 'Aluminum', profile: 'K Style 5"',
+  });
+  assert.match(flat(small),
+    /below the company minimum of \$950.00, and has been priced at the minimum/);
+  assert.ok(sowFor(small).includes('$950.00'));
+});
+
+test('no cost or margin data leaks into the document', () => {
+  const text = sowFor(worked({ guards: true })).toLowerCase();
+  for (const forbidden of ['unit cost', 'unitcost', 'target_margin', 'margin', 'cogs']) {
+    assert.ok(!text.includes(forbidden), `SOW must not contain "${forbidden}"`);
+  }
+});
+
+test('filenames follow SRR-Gutter-Estimate-{slug}-{YYYYMMDD}.txt', () => {
+  assert.equal(
+    sowFilename(ADDRESS, DATE),
+    'SRR-Gutter-Estimate-5031-fair-avenue-north-hollywood-ca-91601-20260919.txt'
+  );
+  assert.equal(dateStamp(new Date(2026, 0, 5)), '20260105');
+  assert.equal(slugifyAddress('  123 Main St. #4, Los Angeles, CA  '),
+    '123-main-st-4-los-angeles-ca');
+  // A blank address must still give a usable filename.
+  assert.equal(sowFilename('', DATE), 'SRR-Gutter-Estimate-estimate-20260919.txt');
+});
+
+test('date helpers roll over months and years correctly', () => {
+  assert.equal(formatDate(new Date(2026, 11, 31)), 'December 31, 2026');
+  assert.equal(dateStamp(addDays(new Date(2026, 11, 20), 30)), '20270119');
+  assert.equal(dateStamp(addDays(new Date(2026, 0, 31), 30)), '20260302'); // 2026 not a leap year
+});
+
+test('wrap never exceeds the width and keeps all the words', () => {
+  const text = 'Furnish and install two hundred and twenty linear feet of '
+             + 'aluminum K Style five inch rain gutter including downspouts.';
+  const out = wrap(text, 40);
+  for (const line of out.split('\n')) assert.ok(line.length <= 40, line);
+  assert.equal(out.replace(/\s+/g, ' ').trim(), text);
+});
+
+test('a missing address does not break the document', () => {
+  const text = generateSow(config, worked(), { address: '', date: DATE });
+  assert.match(text, /\(not supplied\)/);
+  for (const line of text.split('\n')) assert.ok(line.length <= 72);
+});

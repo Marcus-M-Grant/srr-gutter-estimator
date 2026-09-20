@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.log
+.claude/
+
+# Scratch
+.b64.tmp
+*.tmp
+
+# The workbook now lives in Google Drive, which is the source of truth:
+#   https://docs.google.com/spreadsheets/d/1z8CM75Y2F5pTDn4EAZAa60b_io_aqSGOica2b4N5t-A/edit
+# It also holds Unit Cost and target_margin, which must not be published, and
+# /data is world-readable on GitHub Pages. The committed fallback is
+# data/*.csv, which has that data stripped. Keep the xlsx out of the repo.
+SRR_Gutter_Pricing_Config.xlsx

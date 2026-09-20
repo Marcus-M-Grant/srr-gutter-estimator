@@ -1,0 +1,14 @@
+{
+  "name": "srr-gutter-estimator",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Static gutter estimator for Specialist Roofing & Repair. No build step, no keys, no server.",
+  "scripts": {
+    "serve": "npx --yes http-server . -p 8080 -c-1",
+    "snapshot": "node scripts/snapshot.mjs",
+    "seed": "python scripts/seed-from-xlsx.py",
+    "test": "node --test \"tests/**/*.test.js\""
+  },
+  "engines": { "node": ">=20" }
+}
