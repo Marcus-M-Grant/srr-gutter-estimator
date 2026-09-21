@@ -337,6 +337,14 @@ input:focus, select:focus, button:focus-visible {
   color: var(--blue); font: inherit; text-decoration: underline; cursor: pointer;
 }
 
+/* ---------- address block ---------- */
+.addr-grid {
+  display: grid;
+  grid-template-columns: 1fr 72px 96px;   /* city | state | zip */
+  gap: 0 10px;
+}
+.addr-grid .field { margin-bottom: 16px; }
+
 /* ---------- map ---------- */
 .map-wrap { position: relative; }
 .map {

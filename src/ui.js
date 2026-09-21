@@ -22,6 +22,29 @@ export const money = (n) =>
 export const money2 = (n) =>
   n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
 
+/**
+ * Join the four address fields into the one line the geocoder and the
+ * statement of work both want. Skips whatever the customer left blank rather
+ * than emitting stray commas.
+ */
+export function fullAddress(state) {
+  const street = String(state.addressLine ?? '').trim();
+  const city = String(state.city ?? '').trim();
+  const region = String(state.stateCode ?? '').trim().toUpperCase();
+  const zip = String(state.zip ?? '').trim();
+
+  const tail = [region, zip].filter(Boolean).join(' ');
+  return [street, city, tail].filter(Boolean).join(', ');
+}
+
+/** Enough to bother a geocoder with? Street plus either a city or a ZIP. */
+export function addressIsUsable(state) {
+  const street = String(state.addressLine ?? '').trim();
+  const city = String(state.city ?? '').trim();
+  const zip = String(state.zip ?? '').trim();
+  return Boolean(street) && Boolean(city || zip);
+}
+
 /** Nearest-integer display for quantities that are conceptually whole. */
 const num = (n) => Number(n).toLocaleString('en-US', { maximumFractionDigits: 2 });
 
@@ -64,7 +87,10 @@ export function initialState(config) {
   const preferred = config.rules.default_gutter_profile;
 
   return {
-    address: '',
+    addressLine: '',
+    city: '',
+    stateCode: 'CA',
+    zip: '',
     // Measurement chain (phases 4 and 6)
     measurement: null,        // a measureAddress result, or null
     lookupStatus: 'idle',     // idle | looking | done | error
@@ -346,26 +372,49 @@ export function renderForm(config, state) {
     <span class="card__step">Your gutters</span>
     <h2>Tell us about the job</h2>
     <p class="hint">
-      Enter your address to measure from the building outline, or type the
-      linear feet yourself. Either way you can edit every number.
+      Start with your address and we will measure the building for you, or skip
+      it and type the linear feet yourself. Either way, every number stays
+      editable.
     </p>
 
     <div class="field">
-      <label for="address">
-        Property address
+      <label for="addressLine">
+        Street address
         <span class="sub">&mdash; we will look up your building outline</span>
       </label>
-      <div class="input-row">
-        <input type="text" id="address" name="address" autocomplete="street-address"
-               placeholder="5031 Fair Avenue, North Hollywood, CA 91601"
-               value="${esc(state.address ?? '')}">
-        <button type="button" class="btn btn--secondary btn--inline" id="lookup-btn"
-                ${state.lookupStatus === 'looking' ? 'disabled' : ''}>
-          ${state.lookupStatus === 'looking' ? 'Looking&hellip;' : 'Find'}
-        </button>
+      <input type="text" id="addressLine" name="addressLine"
+             autocomplete="address-line1" placeholder="5031 Fair Avenue"
+             value="${esc(state.addressLine ?? '')}">
+    </div>
+
+    <div class="addr-grid">
+      <div class="field">
+        <label for="city">City</label>
+        <input type="text" id="city" name="city" autocomplete="address-level2"
+               placeholder="North Hollywood" value="${esc(state.city ?? '')}">
       </div>
-      <p class="hint" style="margin:6px 0 0">
-        Optional &mdash; you can type the linear feet yourself instead.
+      <div class="field">
+        <label for="stateCode">State</label>
+        <input type="text" id="stateCode" name="stateCode" autocomplete="address-level1"
+               maxlength="2" placeholder="CA" value="${esc(state.stateCode ?? '')}">
+      </div>
+      <div class="field">
+        <label for="zip">ZIP</label>
+        <input type="text" id="zip" name="zip" autocomplete="postal-code"
+               inputmode="numeric" maxlength="10" placeholder="91601"
+               value="${esc(state.zip ?? '')}">
+      </div>
+    </div>
+
+    <div class="field">
+      <button type="button" class="btn btn--secondary btn--block" id="lookup-btn"
+              ${state.lookupStatus === 'looking' ? 'disabled' : ''}>
+        ${state.lookupStatus === 'looking'
+          ? 'Looking up your building&hellip;'
+          : 'Find my building'}
+      </button>
+      <p class="hint" style="margin:8px 0 0">
+        Optional &mdash; you can type the linear feet below instead.
       </p>
     </div>
 
@@ -472,6 +521,7 @@ function renderLineItems(r) {
   </div>`;
 }
 
+
 /** Quantities computed but not priced, listed rather than silently dropped. */
 function renderUnpriced(r) {
   if (!r.unpriced.length) return '';
@@ -492,20 +542,27 @@ function renderUnpriced(r) {
   </div>`;
 }
 
+/**
+ * What the price assumes. This is the only place the waste factor, the
+ * downspout rule and the footage provenance are shown, now that the separate
+ * quantities card is gone.
+ */
 function renderAssumptions(r) {
   const a = r.assumptions;
   const i = r.inputs;
   const sourceLabel = {
-    osm: 'building outline on file (high confidence)',
-    sqft: 'square footage estimate (rough)',
+    osm: 'measured from the building outline',
+    sqft: 'estimated from the home square footage',
     manual: 'entered by you',
   }[a.lfSource] ?? 'entered by you';
 
   const rows = [
     ['How the footage was derived', sourceLabel],
-    ['Gutter run measured', `${num(i.measuredLF)} LF`],
+    ['Gutter run', `${num(i.measuredLF)} LF`],
   ];
-  if (Number.isFinite(a.perimeterFt)) rows.push(['Building perimeter', `${num(a.perimeterFt)} LF`]);
+  if (Number.isFinite(a.perimeterFt)) {
+    rows.push(['Building perimeter', `${Math.round(a.perimeterFt)} LF`]);
+  }
   if (a.roofType) rows.push(['Roof type', `${a.roofType} (factor ${a.roofFactor})`]);
   rows.push(
     ['Waste factor', `${Math.round(a.wasteFactor * 100)}% → ${a.billableLF} billable LF`],
@@ -518,17 +575,6 @@ function renderAssumptions(r) {
 
   return `<dl class="assumptions">${rows.map(([k, v]) => `
     <dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>`;
-}
-
-function renderQuantities(r) {
-  const cells = [
-    ['Billable gutter', `${num(r.quantities.billableLF)} LF`],
-    ['Downspouts', num(r.quantities.downspoutCount)],
-    ['Downspout run', `${num(r.quantities.downspoutLF)} LF`],
-    ['Hangers', num(r.quantities.hangerQty)],
-  ];
-  return `<dl class="qty-grid">${cells.map(([k, v]) => `
-    <div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>`;
 }
 
 export function renderResult(config, state) {
@@ -570,16 +616,6 @@ export function renderResult(config, state) {
       ${esc(state.profile)} gutter with ${esc(r.quantities.downspoutCount)} downspouts.
       Estimate valid ${esc(validity)} days, subject to a site visit.
     </p>
-  </section>
-
-  <section class="card">
-    <span class="card__step">How we got there</span>
-    <h2>Quantities</h2>
-    <p class="hint">
-      ${num(state.measuredLF)} LF measured, plus a
-      ${Math.round(config.rules.waste_factor * 100)}% waste factor.
-    </p>
-    ${renderQuantities(r)}
   </section>
 
   <section class="card">
@@ -638,7 +674,10 @@ export function readForm(form, state) {
 
   return {
     ...state,
-    address: form.elements.address?.value ?? state.address,
+    addressLine: form.elements.addressLine?.value ?? state.addressLine,
+    city: form.elements.city?.value ?? state.city,
+    stateCode: form.elements.stateCode?.value ?? state.stateCode,
+    zip: form.elements.zip?.value ?? state.zip,
     measuredLF: typedLF,
     stories: n('stories', state.stories),
     runs: Math.max(1, n('runs', 1)),

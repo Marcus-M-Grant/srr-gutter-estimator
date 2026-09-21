@@ -3,7 +3,10 @@
 A single-page static site that gives a homeowner an instant, itemized gutter
 estimate from Specialist Roofing & Repair.
 
-**Status: phases 1-6 of 7 complete.** Phase 6 (map and confirm) was built ahead
+**Status: all 7 phases complete. Live at
+<https://marcusmgrant.com/srr-gutter-estimator/>.**
+
+Original status note: Phase 6 (map and confirm) was built ahead
 of phase 5 because [what phase 4 measured](#what-phase-4-measured) showed the
 confirm step is load-bearing, not cosmetic. Only phase 7 (copy pass) remains.
 
@@ -170,7 +173,7 @@ That is what makes the numbers auditable and the tests meaningful.
 | 4 | Geocode + Overpass footprint + perimeter maths, headless | **done** |
 | 5 | Roof factor, editable chain, square footage fallback | **done** |
 | 6 | Leaflet map with outline overlay and confirm step | **done** (built before phase 5, deliberately) |
-| 7 | Mobile polish, branding, copy | **brand + layout done**, copy pass outstanding |
+| 7 | Mobile polish, branding, copy | **done** |
 
 ## Open items found while building phase 1
 

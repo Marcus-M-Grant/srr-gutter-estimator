@@ -16,7 +16,7 @@ import {
 import { renderBuildingMap } from './map.js';
 import {
   initialState, renderForm, renderResult, renderMeasurement, readForm, esc,
-  ROOF_TYPES,
+  ROOF_TYPES, fullAddress, addressIsUsable,
 } from './ui.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -255,13 +255,14 @@ async function init() {
   }
 
   async function runLookup() {
-    const address = String(state.address ?? '').trim();
-    if (!address) {
+    if (!addressIsUsable(state)) {
       state.lookupStatus = 'error';
-      state.lookupError = 'Please type an address first.';
+      state.lookupError =
+        'Please fill in the street address plus a city or ZIP code.';
       renderAll();
       return;
     }
+    const address = fullAddress(state);
 
     state.lookupStatus = 'looking';
     state.measurement = null;
@@ -311,8 +312,8 @@ async function init() {
     const result = estimate(config, estimatorInputs());
     const date = new Date();
     return {
-      text: generateSow(config, result, { address: state.address, date }),
-      filename: sowFilename(state.address, date),
+      text: generateSow(config, result, { address: fullAddress(state), date }),
+      filename: sowFilename(fullAddress(state), date),
       result,
     };
   }
@@ -392,8 +393,8 @@ async function init() {
   function renderAll() {
     mapHandle?.destroy();
     mapHandle = null;
-    app.innerHTML = renderMeasurement(state, currentChain())
-                  + renderForm(config, state)
+    app.innerHTML = renderForm(config, state)
+                  + renderMeasurement(state, currentChain())
                   + '<div id="result"></div>';
     updateResult();
     bind();
@@ -451,9 +452,11 @@ async function init() {
 
     // Geocode on submit only. Never on keystroke - per-keystroke autocomplete
     // is an explicit violation of Nominatim's usage policy.
-    form.elements.address?.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') { e.preventDefault(); runLookup(); }
-    });
+    for (const name of ['addressLine', 'city', 'stateCode', 'zip']) {
+      form.elements[name]?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); runLookup(); }
+      });
+    }
 
     // The roof picker lives in the measurement card, OUTSIDE the form, so the
     // form's own input listener never sees it. Wire it directly.
