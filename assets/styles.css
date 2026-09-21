@@ -492,6 +492,41 @@ input:focus, select:focus, button:focus-visible {
   color: var(--blue-deep);
 }
 
+/* ---------- gutter profile picker ---------- */
+.profiles { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.profile input { position: absolute; opacity: 0; pointer-events: none; }
+.profile__box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 8px 12px;
+  border: 1.5px solid var(--line-strong);
+  border-radius: var(--radius);
+  cursor: pointer;
+  color: var(--blue-deep);
+  background: var(--surface);
+  height: 100%;
+  transition: background .12s, border-color .12s, color .12s;
+}
+.profile__svg { width: 58px; height: 42px; display: block; }
+.profile__name { font-weight: 700; font-size: 0.86rem; text-align: center; }
+.profile__hint {
+  font-size: 0.72rem;
+  font-weight: 500;
+  text-align: center;
+  color: var(--ink-soft);
+  line-height: 1.25;
+}
+.profile input:checked + .profile__box {
+  background: var(--blue); border-color: var(--blue); color: #fff;
+}
+.profile input:checked + .profile__box .profile__hint { color: #cfe0ff; }
+.profile input:focus-visible + .profile__box {
+  outline: 3px solid rgba(0,63,190,.3); outline-offset: 1px;
+}
+.profile__box:hover { border-color: var(--blue); }
+
 /* ---------- roof picker ---------- */
 .roofs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
 .roof input { position: absolute; opacity: 0; pointer-events: none; }
@@ -670,6 +705,7 @@ table.lines--plain td { border-bottom: 1px solid rgba(0,0,0,.07); padding: 5px 1
   .table-scroll { margin: 0; padding: 0; }
   .map { height: 340px; }
   .roofs { grid-template-columns: repeat(4, 1fr); }
+  .profiles { grid-template-columns: repeat(3, 1fr); }
   .assumptions { grid-template-columns: 1fr 1.4fr; column-gap: 18px; }
   .assumptions dt { padding: 9px 0; border-bottom: 1px solid var(--line); }
   .assumptions dd { padding: 9px 0; }

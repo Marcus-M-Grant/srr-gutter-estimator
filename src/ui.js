@@ -80,6 +80,55 @@ export const ROOF_TYPES = [
   },
 ];
 
+/**
+ * Gutter profiles drawn as cross-sections.
+ *
+ * A homeowner has no idea what "K Style 5 inch" means, and a photograph of a
+ * gutter on a house shows the fascia, not the shape. The cross-section is the
+ * thing that actually differs between profiles, so it is what we draw. Inline
+ * SVG also keeps this keyless and free, with nothing to licence.
+ *
+ * Matched on a keyword so any profile the sheet adds still gets a picture.
+ */
+const PROFILE_ART = [
+  {
+    match: /half\s*round/i,
+    hint: 'Rounded, traditional',
+    svg: '<path d="M10 12 A17 17 0 0 0 44 12" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>'
+       + '<path d="M10 12 L6 10 M44 12 L48 10" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>',
+  },
+  {
+    match: /box/i,
+    hint: 'Deep and square, high capacity',
+    svg: '<path d="M12 8 L12 34 L42 34 L42 8" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>'
+       + '<path d="M12 8 L7 6 M42 8 L47 6" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>',
+  },
+  {
+    match: /fascia/i,
+    hint: 'Flat face, hides the rafter ends',
+    svg: '<path d="M13 7 L13 33 L41 33 L43 7" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>'
+       + '<path d="M43 7 L47 6" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>',
+  },
+  {
+    match: /k\s*style/i,
+    hint: 'The common one, crown-moulding look',
+    svg: '<path d="M14 6 L14 33 L34 33 L34 25 Q34 21 39 19 Q43 17 43 12 L43 6" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>'
+       + '<path d="M14 6 L9 4" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>',
+  },
+];
+
+const GENERIC_PROFILE_ART =
+  '<path d="M13 8 L13 33 L41 33 L41 8" fill="none" stroke="currentColor" '
+  + 'stroke-width="2.6" stroke-linejoin="round" stroke-dasharray="4 3"/>';
+
+/** Picture and one-line description for a profile name from the sheet. */
+export function profileArt(profile) {
+  const hit = PROFILE_ART.find((a) => a.match.test(String(profile ?? '')));
+  return hit
+    ? { svg: hit.svg, hint: hit.hint }
+    : { svg: GENERIC_PROFILE_ART, hint: '' };
+}
+
 export function initialState(config) {
   const materials = availableMaterials(config.pricing);
   const material = materials.includes('Aluminum') ? 'Aluminum' : materials[0];
@@ -449,13 +498,25 @@ export function renderForm(config, state) {
       ${radioGroup('material', materials.map((m) => ({ value: m, label: m })), state.material)}
     </fieldset>
 
-    <div class="field">
-      <label for="profile">Gutter style</label>
-      <select id="profile" name="profile">
-        ${profiles.map((p) => `<option value="${esc(p)}"
-          ${p === state.profile ? 'selected' : ''}>${esc(p)}</option>`).join('')}
-      </select>
-    </div>
+    <fieldset class="fieldset">
+      <legend>Gutter shape
+        <span class="sub">&mdash; how it looks from the end</span></legend>
+      <div class="profiles">
+        ${profiles.map((p) => {
+          const art = profileArt(p);
+          return `
+          <label class="profile">
+            <input type="radio" name="profile" value="${esc(p)}"
+                   ${p === state.profile ? 'checked' : ''}>
+            <span class="profile__box">
+              <svg viewBox="0 0 54 40" class="profile__svg" aria-hidden="true">${art.svg}</svg>
+              <span class="profile__name">${esc(p)}</span>
+              ${art.hint ? `<span class="profile__hint">${esc(art.hint)}</span>` : ''}
+            </span>
+          </label>`;
+        }).join('')}
+      </div>
+    </fieldset>
 
     ${(showRuns || showCorners) ? `
     <div class="two-up">
@@ -565,40 +626,6 @@ function renderUnpriced(r) {
   </div>`;
 }
 
-/**
- * What the price assumes. This is the only place the waste factor, the
- * downspout rule and the footage provenance are shown, now that the separate
- * quantities card is gone.
- */
-function renderAssumptions(r) {
-  const a = r.assumptions;
-  const i = r.inputs;
-  const sourceLabel = {
-    osm: 'measured from the building outline',
-    sqft: 'estimated from the home square footage',
-    manual: 'entered by you',
-  }[a.lfSource] ?? 'entered by you';
-
-  const rows = [
-    ['How the footage was derived', sourceLabel],
-    ['Gutter run', `${num(i.measuredLF)} LF`],
-  ];
-  if (Number.isFinite(a.perimeterFt)) {
-    rows.push(['Building perimeter', `${Math.round(a.perimeterFt)} LF`]);
-  }
-  if (a.roofType) rows.push(['Roof type', `${a.roofType} (factor ${a.roofFactor})`]);
-  rows.push(
-    ['Waste factor', `${Math.round(a.wasteFactor * 100)}% → ${a.billableLF} billable LF`],
-    ['Stories', String(i.stories)],
-    ['Downspout rule', a.downspoutRule],
-  );
-  if (r.quantities.miterQty > 0) rows.push(['Corners counted', String(i.corners)]);
-  if (r.quantities.endCapQty > 0) rows.push(['Separate runs', String(i.runs)]);
-  rows.push(['Gutter guards', i.guards ? 'Included' : 'Not included']);
-
-  return `<dl class="assumptions">${rows.map(([k, v]) => `
-    <dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>`;
-}
 
 export function renderResult(config, state) {
   if (!Number.isFinite(state.measuredLF) || state.measuredLF <= 0) {
@@ -646,18 +673,13 @@ export function renderResult(config, state) {
   </section>
 
   <section class="card">
-    <h2>What this price assumes</h2>
-    ${renderAssumptions(r)}
-  </section>
-
-  <section class="card">
     <h2>Statement of work</h2>
     <p class="hint">
-      A plain-text scope of work with the full line-item table, assumptions and
-      exclusions &mdash; ready to paste into a contract.
+      A PDF with the full line-item breakdown, scope of work and exclusions
+      &mdash; ready to print, email or attach to a contract.
     </p>
     <div class="actions">
-      <button type="button" class="btn btn--primary" id="download-sow">Download .txt</button>
+      <button type="button" class="btn btn--primary" id="download-sow">Download PDF</button>
       <button type="button" class="btn btn--secondary" id="copy-sow">Copy to clipboard</button>
     </div>
     <p class="hint" id="sow-status" role="status" aria-live="polite" style="margin:10px 0 0"></p>

@@ -9,6 +9,7 @@
 import { loadConfig } from './config.js';
 import { availableProfiles, estimate } from './estimator.js';
 import { generateSow, sowFilename } from './sow.js';
+import { generateSowPdf, pdfFilename } from './pdf.js';
 import {
   measureAddress, deriveGutterRun, sqftToPerimeterFt,
   polygonPerimeterFt, countVertices, sideLengthsFt,
@@ -323,22 +324,48 @@ async function init() {
     if (el) el.textContent = msg;
   }
 
-  function downloadSow() {
+  /** Hand the browser a blob to save. */
+  function saveBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    // Revoke on the next tick; revoking synchronously cancels the download in
+    // some browsers.
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+
+  /**
+   * Download the statement of work as a PDF, falling back to the plain text
+   * version if jsPDF cannot be loaded. A blocked CDN should cost the customer
+   * a nicer document, not the document.
+   */
+  async function downloadSow() {
+    const btn = $('#download-sow');
     try {
-      const { text, filename } = currentSow();
-      const url = URL.createObjectURL(new Blob([text], { type: 'text/plain;charset=utf-8' }));
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      // Revoke on the next tick; revoking synchronously cancels the download
-      // in some browsers.
-      setTimeout(() => URL.revokeObjectURL(url), 0);
-      setSowStatus(`Downloaded ${filename}`);
+      const { text, filename, result } = currentSow();
+      const date = new Date();
+      const address = fullAddress(state);
+
+      if (btn) { btn.disabled = true; btn.textContent = 'Building PDF…'; }
+      setSowStatus('');
+
+      const blob = await generateSowPdf(config, result, { address, date });
+      if (blob) {
+        const name = pdfFilename(address, date);
+        saveBlob(blob, name);
+        setSowStatus(`Downloaded ${name}`);
+      } else {
+        saveBlob(new Blob([text], { type: 'text/plain;charset=utf-8' }), filename);
+        setSowStatus(`PDF unavailable, so we saved ${filename} instead.`);
+      }
     } catch (err) {
       setSowStatus(`Could not build the document: ${err.message}`);
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = 'Download PDF'; }
     }
   }
 
