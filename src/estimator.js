@@ -16,9 +16,19 @@ export function roundCents(n) {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 
-/** Ceil with a tolerance, so 232.00000000000003 does not become 233. */
+/** A rule's value, or a default when the sheet has not set the key. */
+function numOr(value, fallback) {
+  return Number.isFinite(value) ? value : fallback;
+}
+
+/**
+ * Ceil with a tolerance, so 232.00000000000003 does not become 233.
+ *
+ * The `+ 0` normalises negative zero: Math.ceil(-1e-9) is -0, which is not
+ * strictly equal to 0 and serialises as -0 in JSON.
+ */
 function ceilSafe(n) {
-  return Math.ceil(n - 1e-9);
+  return Math.ceil(n - 1e-9) + 0;
 }
 
 /** '5' from 'K Style 5"', '6' from 'Half Round 6"'. null if there is no size. */
@@ -159,11 +169,14 @@ export function estimate(config, inputs) {
     strapQty: downspoutCount * stories * rules.straps_per_downspout_story,
     hangerQty: ceilSafe(billableLF * rules.hangers_per_lf),
     endCapQty: runs * rules.end_caps_per_run,
-    miterQty: corners,
+    // Miters and tear off used to be unconditional, so there was no way to say
+    // "that is already covered by the gutter price". Both are rules now, and
+    // default to the old behaviour when the key is absent.
+    miterQty: corners * numOr(rules.miters_per_corner, 1),
     splashBlockQty: downspoutCount * rules.splash_blocks_per_downspout,
     sealantQty: rules.sealant_units_per_job,
     guardLF: guards ? billableLF : 0,
-    tearOffLF: billableLF,
+    tearOffLF: billableLF * numOr(rules.tear_off_included, 1),
   };
 
   // ---- resolve SKUs and build lines --------------------------------------

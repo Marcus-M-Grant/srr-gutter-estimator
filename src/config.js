@@ -33,6 +33,7 @@ const NUMERIC_RULES = [
   'estimate_validity_days', 'estimate_range_pct',
   'gutter_factor_gable', 'gutter_factor_hip', 'gutter_factor_flat',
   'gutter_factor_unknown', 'overhang_allowance_ft', 'footprint_shape_factor',
+  'miters_per_corner', 'tear_off_included',
 ];
 
 /** Rules the estimator cannot run without. */

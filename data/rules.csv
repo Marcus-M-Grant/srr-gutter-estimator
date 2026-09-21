@@ -3,12 +3,12 @@ waste_factor,0.1,Extra material added to measured linear feet. 0.10 = 10%.
 downspout_ft_per_story,10,"Feet of downspout per story. 1 story = 10ft, 2 story = 20ft."
 max_gutter_lf_per_downspout,35,One downspout per this many linear feet of gutter.
 min_downspouts,2,Never quote fewer than this many downspouts.
-elbows_per_downspout,3,"Typical: A elbow at gutter, B elbow at wall, one at grade."
-straps_per_downspout_story,2,"Downspout straps per story, per downspout."
-hangers_per_lf,0.5,Hidden hangers per linear foot. 0.5 = one every 24 inches.
-end_caps_per_run,2,End caps per continuous gutter run.
-splash_blocks_per_downspout,1,Set to 0 to stop including splash blocks.
-sealant_units_per_job,2,Tubes of sealant and consumables per job.
+elbows_per_downspout,0,"Typical: A elbow at gutter, B elbow at wall, one at grade."
+straps_per_downspout_story,0,"Downspout straps per story, per downspout."
+hangers_per_lf,0,Hidden hangers per linear foot. 0.5 = one every 24 inches.
+end_caps_per_run,0,End caps per continuous gutter run.
+splash_blocks_per_downspout,0,Set to 0 to stop including splash blocks.
+sealant_units_per_job,0,Tubes of sealant and consumables per job.
 minimum_job_price,950,Floor price. Estimate is raised to this if it comes in lower.
 price_rounding,25,Round the customer-facing total up to this increment.
 estimate_validity_days,30,Printed on the statement of work.
@@ -27,3 +27,5 @@ gutter_factor_flat,0.95,Flat or low slope roof.
 gutter_factor_unknown,0.8,Used when the customer answers 'not sure' on roof type.
 overhang_allowance_ft,1,Feet added per gutter-bearing side for the eave projecting past the wall line.
 footprint_shape_factor,1.12,Corrects 4*sqrt(area) for real houses not being perfect squares.
+miters_per_corner,0,Miters itemised per corner. 0 = already covered by the gutter price.
+tear_off_included,0,Tear off billed per linear foot. 0 = already covered by the gutter price.

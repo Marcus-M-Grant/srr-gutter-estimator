@@ -280,7 +280,6 @@ function renderChain(state, chain, m) {
 export function renderMeasurement(state, chain) {
   if (state.lookupStatus === 'looking') {
     return `<section class="card" id="measurement">
-      <span class="card__step">Your building</span>
       <h2>Looking up your building&hellip;</h2>
       <p class="hint" style="margin:0">
         Checking the public building outline for that address.
@@ -290,7 +289,6 @@ export function renderMeasurement(state, chain) {
 
   if (state.lookupStatus === 'error') {
     return `<section class="card" id="measurement">
-      <span class="card__step">Your building</span>
       <h2>We could not find that building</h2>
       <div class="notice"><strong>${esc(state.lookupError)}</strong>
         No problem. Give us the size of the home instead, or just type the
@@ -307,7 +305,6 @@ export function renderMeasurement(state, chain) {
 
   return `
   <section class="card" id="measurement">
-    <span class="card__step">Your building</span>
     <h2>${m.method === 'sqft' ? 'Estimated from the floor area' : 'Is this your building?'}</h2>
     <p class="hint">
       ${m.method === 'sqft'
@@ -367,9 +364,14 @@ export function renderForm(config, state) {
   const profiles = availableProfiles(config.pricing, state.material);
   const canGuard = guardsAvailable(config.pricing, state.material, state.profile);
 
+  // Only ask for something that changes the answer. When end caps and miters
+  // are covered by the gutter price rather than itemised, these two inputs
+  // drive nothing, and asking anyway wastes the customer's time.
+  const showRuns = Number(config.rules.end_caps_per_run) > 0;
+  const showCorners = Number(config.rules.miters_per_corner ?? 1) > 0;
+
   return `
   <form id="estimate-form" class="card" novalidate>
-    <span class="card__step">Your gutters</span>
     <h2>Tell us about the job</h2>
     <p class="hint">
       Start with your address and we will measure the building for you, or skip
@@ -455,18 +457,21 @@ export function renderForm(config, state) {
       </select>
     </div>
 
+    ${(showRuns || showCorners) ? `
     <div class="two-up">
+      ${showRuns ? `
       <div class="field">
         <label for="runs">Separate gutter runs <span class="sub">&mdash; end caps</span></label>
         <input type="number" id="runs" name="runs" inputmode="numeric"
                min="1" max="20" step="1" value="${state.runs}">
-      </div>
+      </div>` : ''}
+      ${showCorners ? `
       <div class="field">
         <label for="corners">Corners <span class="sub">&mdash; miters</span></label>
         <input type="number" id="corners" name="corners" inputmode="numeric"
                min="0" max="40" step="1" value="${state.corners}">
-      </div>
-    </div>
+      </div>` : ''}
+    </div>` : ''}
 
     ${canGuard ? `
     <div class="field">
@@ -586,10 +591,10 @@ function renderAssumptions(r) {
     ['Waste factor', `${Math.round(a.wasteFactor * 100)}% → ${a.billableLF} billable LF`],
     ['Stories', String(i.stories)],
     ['Downspout rule', a.downspoutRule],
-    ['Corners counted', String(i.corners)],
-    ['Separate runs', String(i.runs)],
-    ['Gutter guards', i.guards ? 'Included' : 'Not included'],
   );
+  if (r.quantities.miterQty > 0) rows.push(['Corners counted', String(i.corners)]);
+  if (r.quantities.endCapQty > 0) rows.push(['Separate runs', String(i.runs)]);
+  rows.push(['Gutter guards', i.guards ? 'Included' : 'Not included']);
 
   return `<dl class="assumptions">${rows.map(([k, v]) => `
     <dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>`;
@@ -598,7 +603,6 @@ function renderAssumptions(r) {
 export function renderResult(config, state) {
   if (!Number.isFinite(state.measuredLF) || state.measuredLF <= 0) {
     return `<section class="card">
-      <span class="card__step">Your estimate</span>
       <h2>Enter your linear feet</h2>
       <p class="hint" style="margin:0">
         Your itemized price appears here as soon as you enter a footage above.
@@ -621,7 +625,6 @@ export function renderResult(config, state) {
 
   return `
   <section class="card result">
-    <span class="card__step">Your estimate</span>
     ${r.minimumApplied ? '<span class="result__flag">Minimum job price applied</span>' : ''}
     <p class="result__label">Estimated total</p>
     <p class="result__total">${money(r.total)}</p>
@@ -637,28 +640,17 @@ export function renderResult(config, state) {
   </section>
 
   <section class="card">
-    <span class="card__step">Line items</span>
     <h2>What you are paying for</h2>
-    <p class="hint">
-      Every item carries its SRR material code, so this converts straight into
-      a work order.
-    </p>
     ${renderLineItems(r)}
     ${renderUnpriced(r)}
   </section>
 
   <section class="card">
-    <span class="card__step">Assumptions</span>
     <h2>What this price assumes</h2>
     ${renderAssumptions(r)}
-    <p class="hint" style="margin:16px 0 0">
-      This estimate is based on satellite imagery and the details you supplied,
-      is subject to a site visit, and is valid for ${esc(validity)} days.
-    </p>
   </section>
 
   <section class="card">
-    <span class="card__step">Take it with you</span>
     <h2>Statement of work</h2>
     <p class="hint">
       A plain-text scope of work with the full line-item table, assumptions and

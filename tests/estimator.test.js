@@ -165,53 +165,49 @@ test('4. Half Round resolves the round downspout, not the rectangular one', () =
   assert.equal(lineFor(c, 'Gutter Cpr Down3x4 Smooth X'), undefined);
 });
 
-test('5. with all TBD- rows inactive the estimate still totals, and lists the gaps', () => {
+test('5. with the accessory rules at zero, nothing is left unpriced', () => {
+  // The placeholder rows were deleted from the sheet and the accessory rules
+  // set to 0, because those parts are covered by the gutter price rather than
+  // itemised. Nothing should be computed that cannot be priced.
   const config = loadRealConfig();
   const r = estimate(config, {
     measuredLF: 200, stories: 2, material: 'Aluminum', profile: 'K Style 5"',
     runs: 1, corners: 4,
   });
 
-  assert.ok(r.total > 0, 'must still produce a total');
-  assert.ok(r.unpriced.length > 0, 'must list the unpriced items');
-
-  // Quantities are computed even though the parts are not priced.
-  const elbows = r.unpriced.find((u) => u.code === 'TBD-Alum-Elbow');
-  assert.ok(elbows, 'elbows must appear as unpriced, not silently vanish');
-  assert.equal(elbows.qty, 18);            // 6 downspouts * 3 elbows
-  assert.equal(r.quantities.hangerQty, 110); // ceil(220 * 0.5)
-  assert.equal(r.quantities.strapQty, 24);   // 6 * 2 storeys * 2
-  assert.equal(r.quantities.endCapQty, 2);   // 1 run * 2
-  assert.equal(r.quantities.miterQty, 4);    // 4 corners
-
-  // Nothing unpriced leaked into the priced lines or the subtotal.
-  for (const u of r.unpriced) {
-    assert.equal(lineFor(r, u.code), undefined, `${u.code} must not be billed`);
-  }
-  assert.equal(r.subtotal, 5780.80);
+  assert.ok(r.total > 0);
+  assert.deepEqual(r.unpriced, [], 'nothing should be computed but unpriceable');
+  assert.equal(r.quantities.hangerQty, 0);
+  assert.equal(r.quantities.elbowQty, 0);
+  assert.equal(r.quantities.miterQty, 0);
+  assert.equal(r.quantities.endCapQty, 0);
+  assert.equal(r.quantities.strapQty, 0);
+  assert.equal(r.quantities.tearOffLF, 0);
+  assert.equal(r.subtotal, 5780.80, 'gutter plus downspout, as before');
 });
 
-test('5b. pricing and activating a TBD row moves it into the total', () => {
-  // Activating alone is not enough any more: the placeholder rows ship with no
-  // Price at all, so a real cost has to be entered too. That mirrors what the
-  // owner actually does in the sheet - fill in Unit Cost, then set Active.
-  const config = loadRealConfig();
+test('5b. an item with a price and a quantity is billed', () => {
+  // Driven by a synthetic row rather than the real sheet, so the test keeps
+  // its meaning no matter which parts SRR itemises.
+  const config = withRules({ hangers_per_lf: 0.5 });
   const patched = {
     ...config,
-    pricing: config.pricing.map((r) =>
-      r.code === 'TBD-Alum-Hanger' ? { ...r, active: true, price: 7.27 } : r),
+    pricing: [...config.pricing, {
+      code: 'HANGER-1', name: 'Hidden hanger', description: 'Gutter - Hanger',
+      material: 'Aluminum', category: 'Accessory', profile: '', uom: 'EA',
+      price: 7.27, active: true, costOfSaleAccount: '', isPlaceholder: false,
+    }],
   };
   const r = estimate(patched, {
     measuredLF: 200, stories: 2, material: 'Aluminum', profile: 'K Style 5"',
   });
 
-  // 110 hangers at $7.27 = $799.70
-  const hangers = lineFor(r, 'TBD-Alum-Hanger');
-  assert.ok(hangers, 'an activated row must be billed');
-  assert.equal(hangers.qty, 110);
-  assert.equal(hangers.lineTotal, 799.70);
+  const hangers = lineFor(r, 'HANGER-1');
+  assert.ok(hangers, 'a priced, active, in-scope row must be billed');
+  assert.equal(hangers.qty, 110);           // ceil(220 * 0.5)
+  assert.equal(hangers.lineTotal, 799.70);  // 110 * 7.27
   assert.equal(r.subtotal, 5780.80 + 799.70);
-  assert.ok(!r.unpriced.some((u) => u.code === 'TBD-Alum-Hanger'));
+  assert.ok(!r.unpriced.some((u) => u.code === 'HANGER-1'));
 });
 
 test('6. changing target_margin changes nothing - the engine reads Price only', () => {
@@ -368,59 +364,71 @@ test('dropdowns are built from the sheet, not hardcoded', () => {
 });
 
 test('a blank or zero price is treated as absent, never as free', () => {
-  // The TBD- placeholder rows ship with no Price at all, because inventing one
-  // would put a fabricated figure on a customer's estimate. A missing price
-  // must surface as unpriced rather than quietly billing the line at $0.00.
-  const config = loadRealConfig();
+  // A missing price must surface as unpriced rather than quietly billing the
+  // line at $0.00, which would understate the job.
+  const base = withRules({ hangers_per_lf: 0.5 });
 
   for (const price of [NaN, 0, -5]) {
     const patched = {
-      ...config,
-      pricing: config.pricing.map((r) =>
-        r.code === 'TBD-Alum-Hanger' ? { ...r, active: true, price } : r),
+      ...base,
+      pricing: [...base.pricing, {
+        code: 'HANGER-1', name: 'Hidden hanger', description: 'Gutter - Hanger',
+        material: 'Aluminum', category: 'Accessory', profile: '', uom: 'EA',
+        price, active: true, costOfSaleAccount: '', isPlaceholder: false,
+      }],
     };
     const r = estimate(patched, {
       measuredLF: 200, stories: 2, material: 'Aluminum', profile: 'K Style 5"',
     });
 
-    assert.equal(lineFor(r, 'TBD-Alum-Hanger'), undefined,
-      `price ${price} must not be billed`);
-    const listed = r.unpriced.find((u) => u.code === 'TBD-Alum-Hanger');
+    assert.equal(lineFor(r, 'HANGER-1'), undefined, `price ${price} must not be billed`);
+    const listed = r.unpriced.find((u) => u.code === 'HANGER-1');
     assert.ok(listed, `price ${price} must be listed as unpriced`);
     assert.equal(listed.qty, 110);
     assert.equal(r.subtotal, 5780.80, 'the total must be unchanged');
   }
 });
 
-test('the shipped snapshot carries no invented placeholder prices', () => {
+test('the shipped snapshot carries no placeholder rows at all', () => {
   const config = loadRealConfig();
   const placeholders = config.pricing.filter((r) => r.isPlaceholder);
-  assert.equal(placeholders.length, 13);
-  for (const p of placeholders) {
-    assert.ok(!Number.isFinite(p.price),
-      `${p.code} must ship with no price, got ${p.price}`);
+  assert.deepEqual(placeholders, [], 'TBD- rows were removed from the sheet');
+  for (const row of config.pricing) {
+    assert.ok(Number.isFinite(row.price) && row.price > 0,
+      `${row.code} must carry a real price`);
   }
 });
 
 test('an unmatched item reports its real unit, not a default of EA', () => {
-  // With the TBD- rows deleted from the sheet entirely, nothing matches the
-  // accessory families any more. The quantities are still computed, and the
-  // units have to stay honest: tear off is linear feet, and reporting
+  // If a rule asks for a part the sheet has no row for, the quantity is still
+  // computed and the unit has to stay honest: tear off is linear feet, and
   // "368 EA" would describe a completely different job.
-  const config = loadRealConfig();
-  const stripped = {
-    ...config,
-    pricing: config.pricing.filter((r) => !r.isPlaceholder),
-  };
-  const r = estimate(stripped, {
+  const config = withRules({ tear_off_included: 1, hangers_per_lf: 0.5 });
+  const r = estimate(config, {
     measuredLF: 334, stories: 2, material: 'Aluminum', profile: 'K Style 5"',
   });
 
   const byName = (n) => r.unpriced.find((u) => u.name === n);
   assert.equal(byName('Tear off and haul away').uom, 'LF');
   assert.equal(byName('Hidden hangers').uom, 'EA');
-  assert.equal(byName('Elbows').uom, 'EA');
-  for (const u of r.unpriced) {
-    assert.ok(u.uom, `${u.name} must report a unit`);
-  }
+  for (const u of r.unpriced) assert.ok(u.uom, `${u.name} must report a unit`);
+});
+
+test('accessory rules at zero remove the part, not just its price', () => {
+  // "Covered by the gutter price" has to mean the item disappears from the
+  // scope entirely, rather than lurking as an unpriced line.
+  const on = estimate(withRules({ elbows_per_downspout: 3, miters_per_corner: 1 }), {
+    measuredLF: 200, stories: 2, material: 'Aluminum', profile: 'K Style 5"', corners: 4,
+  });
+  assert.ok(on.quantities.elbowQty > 0);
+  assert.ok(on.quantities.miterQty > 0);
+  assert.ok(on.unpriced.length > 0, 'no rows exist for them, so they are unpriced');
+
+  const off = estimate(loadRealConfig(), {
+    measuredLF: 200, stories: 2, material: 'Aluminum', profile: 'K Style 5"', corners: 4,
+  });
+  assert.equal(off.quantities.elbowQty, 0);
+  assert.equal(off.quantities.miterQty, 0);
+  assert.deepEqual(off.unpriced, []);
+  assert.equal(off.total, on.total, 'and the priced total is identical either way');
 });
