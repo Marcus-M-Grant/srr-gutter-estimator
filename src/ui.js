@@ -522,14 +522,32 @@ function renderLineItems(r) {
 }
 
 
-/** Quantities computed but not priced, listed rather than silently dropped. */
+/** True when the page was opened with ?debug, which is for SRR, not customers. */
+function isDebug() {
+  try {
+    return new URLSearchParams(location.search).has('debug');
+  } catch { return false; }
+}
+
+/**
+ * Quantities computed but not priced.
+ *
+ * HIDDEN FROM CUSTOMERS. It exposed internal TBD- placeholder codes and read
+ * as an unfinished price list. It is still rendered under ?debug so SRR can
+ * see exactly what the quoted total is leaving out.
+ *
+ * Note what this means: while any part is unpriced, the total genuinely
+ * excludes real work. The fix is pricing those rows in the sheet, not hiding
+ * the list - see README "Open items".
+ */
 function renderUnpriced(r) {
-  if (!r.unpriced.length) return '';
+  if (!r.unpriced.length || !isDebug()) return '';
   return `
   <div class="notice" style="margin-top:18px">
-    <strong>Included in the work but not yet priced (${r.unpriced.length} items)</strong>
-    These parts are in the scope and will appear on the work order, but they are
-    still placeholders in the price list, so they are <em>not</em> in the total above.
+    <strong>Visible because of ?debug &mdash;
+      ${r.unpriced.length} item(s) computed but not priced</strong>
+    These are in the scope and will appear on the work order, but they have no
+    price in the sheet, so they are <em>not</em> in the total above.
     <div class="table-scroll" style="margin-top:8px">
       <table class="lines lines--plain">
         <tbody>${r.unpriced.map((u) => `<tr>
