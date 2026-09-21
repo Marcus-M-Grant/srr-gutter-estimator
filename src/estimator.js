@@ -87,15 +87,21 @@ const DOWNSPOUT_RULE = {
   Copper: { round: 'downspout_roundprofile_copper', default: 'downspout_default_copper' },
 };
 
-/** Accessory families, in the order they appear on the estimate. */
+/**
+ * Accessory families, in the order they appear on the estimate.
+ *
+ * `uom` is the unit to report when NO pricing row matches. Without it an
+ * unmatched line falls back to "EA", which turned 368 linear feet of tear off
+ * into "368 EA" - a different job entirely.
+ */
 const ACCESSORIES = [
-  { key: 'elbowQty', family: 'Gutter - Elbow', label: 'Elbows' },
-  { key: 'miterQty', family: 'Gutter - Miter', label: 'Miters / corners' },
-  { key: 'endCapQty', family: 'Gutter - End Cap', label: 'End caps' },
-  { key: 'hangerQty', family: 'Gutter - Hanger', label: 'Hidden hangers' },
-  { key: 'strapQty', family: 'Gutter - Downspout Strap', label: 'Downspout straps' },
-  { key: 'splashBlockQty', family: 'Gutter - Splash Block', label: 'Splash blocks' },
-  { key: 'sealantQty', family: 'Gutter - Sealant', label: 'Sealant and consumables' },
+  { key: 'elbowQty', family: 'Gutter - Elbow', label: 'Elbows', uom: 'EA' },
+  { key: 'miterQty', family: 'Gutter - Miter', label: 'Miters / corners', uom: 'EA' },
+  { key: 'endCapQty', family: 'Gutter - End Cap', label: 'End caps', uom: 'EA' },
+  { key: 'hangerQty', family: 'Gutter - Hanger', label: 'Hidden hangers', uom: 'EA' },
+  { key: 'strapQty', family: 'Gutter - Downspout Strap', label: 'Downspout straps', uom: 'EA' },
+  { key: 'splashBlockQty', family: 'Gutter - Splash Block', label: 'Splash blocks', uom: 'EA' },
+  { key: 'sealantQty', family: 'Gutter - Sealant', label: 'Sealant and consumables', uom: 'EA' },
 ];
 
 /**
@@ -169,13 +175,13 @@ export function estimate(config, inputs) {
    * recorded as unpriced rather than substituted - guessing a replacement SKU
    * would put the wrong part on a real work order.
    */
-  const addLine = (row, quantity, label, notFoundCode) => {
+  const addLine = (row, quantity, label, notFoundCode, fallbackUom = 'EA') => {
     if (quantity <= 0) return;
 
     if (!row) {
       unpriced.push({
         code: notFoundCode ?? '(none)', name: label, qty: quantity,
-        uom: '', reason: 'no matching item in the pricing sheet',
+        uom: fallbackUom, reason: 'no matching item in the pricing sheet',
       });
       return;
     }
@@ -210,7 +216,7 @@ export function estimate(config, inputs) {
   ) ?? pricing.find(
     (r) => r.category === 'Gutter' && r.material === material && r.profile === profile
   );
-  addLine(gutterRow, billableLF, `Gutter - ${material} ${profile}`);
+  addLine(gutterRow, billableLF, `Gutter - ${material} ${profile}`, null, 'LF');
 
   // Downspout: the round code for Half Round gutters, the rectangular one
   // otherwise. Both come from the Rules tab, never from a hardcoded string.
@@ -220,21 +226,22 @@ export function estimate(config, inputs) {
     ? rules[isRound ? dsRules.round : dsRules.default]
     : null;
   const downspoutRow = byCode(pricing, downspoutCode);
-  addLine(downspoutRow, downspoutLF, `Downspout - ${material}`, downspoutCode);
+  addLine(downspoutRow, downspoutLF, `Downspout - ${material}`, downspoutCode, 'LF');
 
   // Gutter guards, size-matched to the gutter
   if (guards && qty.guardLF > 0) {
-    addLine(findGuard(pricing, material, profile), qty.guardLF, 'Gutter guards');
+    addLine(findGuard(pricing, material, profile), qty.guardLF, 'Gutter guards', null, 'LF');
   }
 
   // Accessories
   for (const acc of ACCESSORIES) {
-    addLine(byFamily(pricing, acc.family, material), qty[acc.key], acc.label);
+    addLine(byFamily(pricing, acc.family, material), qty[acc.key], acc.label,
+            null, acc.uom);
   }
 
-  // Tear off and haul away
+  // Tear off and haul away is measured in linear feet, not each.
   addLine(byFamily(pricing, 'Gutter - Tear Off', material), qty.tearOffLF,
-          'Tear off and haul away');
+          'Tear off and haul away', null, 'LF');
 
   // ---- totals -------------------------------------------------------------
   const subtotal = roundCents(lines.reduce((s, l) => s + l.lineTotal, 0));

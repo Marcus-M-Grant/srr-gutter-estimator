@@ -401,3 +401,26 @@ test('the shipped snapshot carries no invented placeholder prices', () => {
       `${p.code} must ship with no price, got ${p.price}`);
   }
 });
+
+test('an unmatched item reports its real unit, not a default of EA', () => {
+  // With the TBD- rows deleted from the sheet entirely, nothing matches the
+  // accessory families any more. The quantities are still computed, and the
+  // units have to stay honest: tear off is linear feet, and reporting
+  // "368 EA" would describe a completely different job.
+  const config = loadRealConfig();
+  const stripped = {
+    ...config,
+    pricing: config.pricing.filter((r) => !r.isPlaceholder),
+  };
+  const r = estimate(stripped, {
+    measuredLF: 334, stories: 2, material: 'Aluminum', profile: 'K Style 5"',
+  });
+
+  const byName = (n) => r.unpriced.find((u) => u.name === n);
+  assert.equal(byName('Tear off and haul away').uom, 'LF');
+  assert.equal(byName('Hidden hangers').uom, 'EA');
+  assert.equal(byName('Elbows').uom, 'EA');
+  for (const u of r.unpriced) {
+    assert.ok(u.uom, `${u.name} must report a unit`);
+  }
+});
