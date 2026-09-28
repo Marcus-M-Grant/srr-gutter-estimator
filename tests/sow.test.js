@@ -19,9 +19,10 @@ import {
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
+// Frozen fixture prices - see tests/fixtures/README.md.
 const config = buildConfig(
-  readFileSync(join(ROOT, 'data', 'pricing.csv'), 'utf8'),
-  readFileSync(join(ROOT, 'data', 'rules.csv'), 'utf8'),
+  readFileSync(join(ROOT, 'tests', 'fixtures', 'pricing.csv'), 'utf8'),
+  readFileSync(join(ROOT, 'tests', 'fixtures', 'rules.csv'), 'utf8'),
   'test'
 );
 

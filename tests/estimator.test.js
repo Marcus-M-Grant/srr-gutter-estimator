@@ -19,8 +19,25 @@ import { estimate, profileSize, findGuard, availableProfiles } from '../src/esti
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
-/** The real committed snapshot. These tests are about real SRR prices. */
+/**
+ * FROZEN fixture prices, not the live sheet.
+ *
+ * These tests are about the engine's arithmetic, not about what SRR charges
+ * this week. Pointing them at /data meant every price change in the Google
+ * Sheet broke ten of them - which teaches everyone to update the expected
+ * numbers without reading them, and that is how a real pricing bug slips
+ * through. See tests/fixtures/README.md.
+ */
 function loadRealConfig() {
+  return buildConfig(
+    readFileSync(join(ROOT, 'tests', 'fixtures', 'pricing.csv'), 'utf8'),
+    readFileSync(join(ROOT, 'tests', 'fixtures', 'rules.csv'), 'utf8'),
+    'test'
+  );
+}
+
+/** The actual committed snapshot, for the few tests that are about live data. */
+function loadShippedConfig() {
   return buildConfig(
     readFileSync(join(ROOT, 'data', 'pricing.csv'), 'utf8'),
     readFileSync(join(ROOT, 'data', 'rules.csv'), 'utf8'),
@@ -39,7 +56,7 @@ const lineFor = (result, code) => result.lines.find((l) => l.code === code);
 // ---------------------------------------------------------------------------
 
 test('config snapshot loads without errors', () => {
-  const config = loadRealConfig();
+  const config = loadShippedConfig();
   assert.deepEqual(config.errors, [], 'snapshot must be valid');
   assert.ok(config.pricing.length > 0);
 });
@@ -390,7 +407,7 @@ test('a blank or zero price is treated as absent, never as free', () => {
 });
 
 test('the shipped snapshot carries no placeholder rows at all', () => {
-  const config = loadRealConfig();
+  const config = loadShippedConfig();
   const placeholders = config.pricing.filter((r) => r.isPlaceholder);
   assert.deepEqual(placeholders, [], 'TBD- rows were removed from the sheet');
   for (const row of config.pricing) {
@@ -431,4 +448,24 @@ test('accessory rules at zero remove the part, not just its price', () => {
   assert.equal(off.quantities.miterQty, 0);
   assert.deepEqual(off.unpriced, []);
   assert.equal(off.total, on.total, 'and the priced total is identical either way');
+});
+
+test('the shipped snapshot still prices a real job sensibly', () => {
+  // Deliberately asserts no specific figure: prices move whenever the owner
+  // edits the sheet, and this test must not become a thing people silently
+  // re-baseline. It only proves the live data still produces a coherent quote.
+  const config = loadShippedConfig();
+  const r = estimate(config, {
+    measuredLF: 334, stories: 2, material: 'Aluminum', profile: 'K Style 5"',
+  });
+
+  assert.ok(r.total > 0, 'a real job must produce a total');
+  assert.equal(r.total % config.rules.price_rounding, 0, 'total must be rounded');
+  assert.ok(r.lines.length >= 2, 'at least gutter and downspout must be priced');
+  assert.deepEqual(r.unpriced, [], 'nothing computed that cannot be priced');
+  assert.ok(r.lowBand < r.total && r.total < r.highBand, 'band must straddle the total');
+  for (const l of r.lines) {
+    assert.ok(l.unitPrice > 0, `${l.code} must have a positive rate`);
+    assert.ok(l.lineTotal > 0, `${l.code} must have a positive amount`);
+  }
 });

@@ -27,5 +27,5 @@ gutter_factor_flat,0.95,Flat or low slope roof.
 gutter_factor_unknown,0.8,Used when the customer answers 'not sure' on roof type.
 overhang_allowance_ft,1,Feet added per gutter-bearing side for the eave projecting past the wall line.
 footprint_shape_factor,1.12,Corrects 4*sqrt(area) for real houses not being perfect squares.
-miters_per_corner,0,Miters itemised per corner. 0 = already covered by the gutter price.
-tear_off_included,0,Tear off billed per linear foot. 0 = already covered by the gutter price.
+miters_per_corner,0,Miters itemised per corner. 0 = covered by the gutter price.
+tear_off_included,0,Tear off billed per linear foot. 0 = covered by the gutter price.
