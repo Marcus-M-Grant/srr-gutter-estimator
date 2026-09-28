@@ -136,6 +136,47 @@ publicly by GitHub Pages, so anything committed there is world-readable. The
 estimator reads `Price` only, so nothing is lost by dropping cost data
 entirely.
 
+## Deploying to srrgutters.com (HostGator)
+
+```bash
+npm run package
+```
+
+Builds `dist/` with only the files the browser actually loads, plus an
+`.htaccess`. Upload the **contents** of `dist/` into `public_html`.
+
+The site uses relative paths throughout, so it works at a domain root with no
+changes - nothing to rebuild or rewrite when moving off the `/srr-gutter-estimator`
+subpath.
+
+**The Google Sheet keeps working untouched.** The published-CSV URLs are
+absolute and Google serves them with `access-control-allow-origin: *`, so they
+are not tied to any host. Same for Nominatim, Overpass and the Esri tiles.
+
+`npm run package` refuses to build if the workbook or the tests end up in the
+bundle. The `.xlsx` holds `Unit Cost` and must never sit in a public web root.
+
+### What the .htaccess does
+
+- **Forces HTTPS.** The clipboard button needs a secure context, and a form
+  asking for someone's address should not be served over plain HTTP. Turn on
+  free AutoSSL in cPanel first, or the redirect will loop into a cert warning.
+- **Serves code and pricing `no-cache`.** There is no build step and no
+  filename hashing, so a cached module is a stale module with no way to bust
+  it. Only images are allowed to sit in cache.
+- Gzip, correct MIME types, no directory listings.
+
+### After a price change
+
+```bash
+npm run snapshot   # refresh the offline fallback from the live sheet
+npm test
+npm run package    # rebuild dist/, re-upload
+```
+
+Customers see sheet edits immediately either way - the snapshot only matters
+when the sheet is unreachable.
+
 ## Repository layout
 
 ```
@@ -154,6 +195,7 @@ src/map.js                 Leaflet, optional by design
 assets/logo.png            Specialist Roofing & Repair logo
 data/pricing.csv           committed fallback snapshot
 data/rules.csv             committed fallback snapshot
+scripts/package.mjs        build dist/ for upload to shared hosting
 scripts/geo-probe.mjs      headless hit-rate probe for the address chain
 scripts/snapshot.mjs       refresh the fallback from the live sheet
 scripts/seed-from-xlsx.py  rebuild the fallback from the workbook

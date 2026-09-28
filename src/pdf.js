@@ -108,12 +108,17 @@ export function sowPdfModel(config, result, meta) {
   const license = String(rules.company_license ?? '').trim();
   const validDays = Number(rules.estimate_validity_days) || 30;
   const real = (v) => v && v.toUpperCase() !== 'TBD';
+  // Which site to print on a customer's estimate is a business call, not a
+  // hosting detail, so it lives on the Rules tab. Defaults to the main company
+  // site rather than the estimator's own domain.
+  const website = String(rules.company_website ?? 'specialistroofing.com').trim();
 
   return {
     company,
     phone: real(phone) ? phone : null,
     license: real(license) ? license : null,
     validDays,
+    website: real(website) ? website : null,
     facts: [
       ['Date', formatDate(date)],
       ['Property address', address || '(not supplied)'],
@@ -185,7 +190,7 @@ export async function generateSowPdf(config, result, meta) {
   if (!JsPDF) return null;
 
   const model = sowPdfModel(config, result, meta);
-  const { company, phone, license, validDays } = model;
+  const { company, phone, license, validDays, website } = model;
 
   const doc = new JsPDF({ unit: 'pt', format: 'letter', compress: true });
   let y = M;
@@ -251,7 +256,7 @@ export async function generateSowPdf(config, result, meta) {
   setFont(13, 'bold', BLUE);
   if (phone) doc.text(phone, PAGE.w - M, M + 14, { align: 'right' });
   setFont(8, 'normal', INK_SOFT);
-  doc.text('specialistroofing.com', PAGE.w - M, M + 27, { align: 'right' });
+  if (website) doc.text(website, PAGE.w - M, M + 27, { align: 'right' });
   if (license) doc.text(`License #${license}`, PAGE.w - M, M + 38, { align: 'right' });
 
   y = Math.max(y, M + 52);

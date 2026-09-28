@@ -56,5 +56,5 @@ export const NETWORK_TIMEOUT_MS = 15000;
  * probe script and the tests.
  */
 export const USER_AGENT =
-  'SRR-Gutter-Estimator/0.1 (+https://specialistroofing.com)';
+  'SRR-Gutter-Estimator/0.1 (+https://srrgutters.com)';
 export const OSM_ATTRIBUTION = 'Building outlines &copy; OpenStreetMap contributors';

@@ -17,3 +17,5 @@ Thumbs.db
 # /data is world-readable on GitHub Pages. The committed fallback is
 # data/*.csv, which has that data stripped. Keep the xlsx out of the repo.
 SRR_Gutter_Pricing_Config.xlsx
+
+dist/

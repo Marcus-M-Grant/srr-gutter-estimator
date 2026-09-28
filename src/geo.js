@@ -376,7 +376,7 @@ export async function geocodeNominatim(address, deps = {}) {
   const url = `${GEOCODER_NOMINATIM}?format=jsonv2&limit=1`
             + `&countrycodes=us&q=${encodeURIComponent(address)}`;
   const json = await f(url, {
-    headers: { Referer: deps.referer ?? 'https://specialistroofing.com' },
+    headers: { Referer: deps.referer ?? 'https://srrgutters.com' },
   });
   const hit = Array.isArray(json) ? json[0] : null;
   if (!hit) return null;
