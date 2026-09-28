@@ -57,3 +57,60 @@ test('a lookup needs a street plus either a city or a ZIP', () => {
   assert.equal(addressIsUsable({}), false);
   assert.equal(addressIsUsable({ addressLine: '   ', city: 'Burbank' }), false);
 });
+
+// ---------------------------------------------------------------------------
+// which materials a customer is offered
+// ---------------------------------------------------------------------------
+
+import { offeredMaterials } from '../src/ui.js';
+
+const pricingWith = (...materials) => materials.map((m) => ({
+  code: `${m}-K5`, name: `${m} K Style`, description: 'Gutter - K Style 5"',
+  material: m, category: 'Gutter', profile: 'K Style 5"', uom: 'LF',
+  price: 16.36, active: true, costOfSaleAccount: '', isPlaceholder: false,
+}));
+
+test('only aluminium is offered by default, even though copper is priced', () => {
+  // SRR sells aluminium through this tool. The sheet still prices copper and
+  // the estimator still handles it; it just is not put in front of a customer.
+  const config = { pricing: pricingWith('Aluminum', 'Copper'), rules: {} };
+  assert.deepEqual(offeredMaterials(config), ['Aluminum']);
+});
+
+test('the sheet can widen the offer without touching code', () => {
+  const pricing = pricingWith('Aluminum', 'Copper');
+  assert.deepEqual(
+    offeredMaterials({ pricing, rules: { materials_offered: 'Aluminum, Copper' } }),
+    ['Aluminum', 'Copper']);
+  assert.deepEqual(
+    offeredMaterials({ pricing, rules: { materials_offered: 'Copper' } }),
+    ['Copper']);
+  assert.deepEqual(
+    offeredMaterials({ pricing, rules: { materials_offered: '*' } }),
+    ['Aluminum', 'Copper']);
+});
+
+test('the list is matched case insensitively and tolerates loose spacing', () => {
+  const pricing = pricingWith('Aluminum', 'Copper');
+  assert.deepEqual(
+    offeredMaterials({ pricing, rules: { materials_offered: '  copper ,ALUMINUM  ' } }),
+    ['Aluminum', 'Copper']);
+});
+
+test('a rule naming nothing we stock still leaves something to pick', () => {
+  // Better to show the real options than to hand the customer an empty form.
+  const config = {
+    pricing: pricingWith('Aluminum'),
+    rules: { materials_offered: 'Zinc' },
+  };
+  assert.deepEqual(offeredMaterials(config), ['Aluminum']);
+});
+
+test('the default material is aluminium when it is on offer', async () => {
+  const { initialState } = await import('../src/ui.js');
+  const config = {
+    pricing: pricingWith('Aluminum', 'Copper'),
+    rules: { default_gutter_profile: 'K Style 5"' },
+  };
+  assert.equal(initialState(config).material, 'Aluminum');
+});

@@ -129,8 +129,26 @@ export function profileArt(profile) {
     : { svg: GENERIC_PROFILE_ART, hint: '' };
 }
 
+/**
+ * Which materials to put in front of a customer.
+ *
+ * The sheet still prices copper, and the estimator still handles it, but SRR
+ * only sells aluminium through this tool. `materials_offered` on the Rules tab
+ * controls it - a comma separated list. Absent, it means aluminium only.
+ */
+export function offeredMaterials(config) {
+  const available = availableMaterials(config.pricing);
+  const raw = String(config.rules?.materials_offered ?? 'Aluminum').trim();
+  if (raw === '*') return available;
+
+  const wanted = raw.split(',').map((m) => m.trim().toLowerCase()).filter(Boolean);
+  const offered = available.filter((m) => wanted.includes(m.toLowerCase()));
+  // Never leave the customer with nothing to pick, whatever the sheet says.
+  return offered.length ? offered : available;
+}
+
 export function initialState(config) {
-  const materials = availableMaterials(config.pricing);
+  const materials = offeredMaterials(config);
   const material = materials.includes('Aluminum') ? 'Aluminum' : materials[0];
   const profiles = availableProfiles(config.pricing, material);
   const preferred = config.rules.default_gutter_profile;
@@ -326,25 +344,31 @@ function renderChain(state, chain, m) {
  * range. The outline is presented as a STARTING POINT to be confirmed, never
  * as a measurement.
  */
+/**
+ * The measurement sits INSIDE the job card, directly under the address block,
+ * so the map appears where the customer just typed rather than below every
+ * other question. It is a plain block, not a card - a card nested inside a
+ * card reads as a separate step, which is the opposite of the point.
+ */
 export function renderMeasurement(state, chain) {
   if (state.lookupStatus === 'looking') {
-    return `<section class="card" id="measurement">
+    return `<div class="measure" id="measurement">
       <h2>Looking up your building&hellip;</h2>
       <p class="hint" style="margin:0">
-        Checking the public building outline for that address.
+        Checking the public building outline for that address&hellip;
       </p>
-    </section>`;
+    </div>`;
   }
 
   if (state.lookupStatus === 'error') {
-    return `<section class="card" id="measurement">
+    return `<div class="measure" id="measurement">
       <h2>We could not find that building</h2>
       <div class="notice"><strong>${esc(state.lookupError)}</strong>
         No problem. Give us the size of the home instead, or just type the
         linear feet below &mdash; an estimator confirms the real footage on site.
       </div>
       ${renderSqFtFallback(state)}
-    </section>`;
+    </div>`;
   }
 
   const m = state.measurement;
@@ -353,8 +377,9 @@ export function renderMeasurement(state, chain) {
   const alts = m.alternatives ?? [];
 
   return `
-  <section class="card" id="measurement">
-    <h2>${m.method === 'sqft' ? 'Estimated from the floor area' : 'Is this your building?'}</h2>
+  <div class="measure" id="measurement">
+    <h3 class="measure__title">${m.method === 'sqft'
+      ? 'Estimated from the floor area' : 'Is this your building?'}</h3>
     <p class="hint">
       ${m.method === 'sqft'
         ? `Worked out from ${Math.round(m.footprintSqFt)} sq ft of footprint. This is a
@@ -405,11 +430,11 @@ export function renderMeasurement(state, chain) {
       ${m.searchRadiusM > 30 ? 'The building sits well back from the road, so we widened the search. ' : ''}
       You can edit the linear feet below at any time.
     </p>
-  </section>`;
+  </div>`;
 }
 
-export function renderForm(config, state) {
-  const materials = availableMaterials(config.pricing);
+export function renderForm(config, state, measurementHtml = '') {
+  const materials = offeredMaterials(config);
   const profiles = availableProfiles(config.pricing, state.material);
   const canGuard = guardsAvailable(config.pricing, state.material, state.profile);
 
@@ -469,6 +494,8 @@ export function renderForm(config, state) {
       </p>
     </div>
 
+    ${measurementHtml}
+
     <div class="field">
       <label for="measuredLF">
         Linear feet of gutter
@@ -493,10 +520,11 @@ export function renderForm(config, state) {
       ], state.stories)}
     </fieldset>
 
+    ${materials.length > 1 ? `
     <fieldset class="fieldset">
       <legend>Material</legend>
       ${radioGroup('material', materials.map((m) => ({ value: m, label: m })), state.material)}
-    </fieldset>
+    </fieldset>` : ''}
 
     <fieldset class="fieldset">
       <legend>Gutter shape

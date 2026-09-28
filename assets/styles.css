@@ -345,6 +345,22 @@ input:focus, select:focus, button:focus-visible {
 }
 .addr-grid .field { margin-bottom: 16px; }
 
+/* ---------- the measurement, inline under the address ---------- */
+.measure {
+  margin: 0 0 18px;
+  padding: 16px 0 0;
+  border-top: 1px solid var(--line);
+}
+.measure__title {
+  font-family: var(--font-head);
+  font-weight: 900;
+  text-transform: uppercase;
+  font-size: 0.98rem;
+  color: var(--blue-deep);
+  margin: 0 0 4px;
+  line-height: 1.1;
+}
+
 /* ---------- map ---------- */
 .map-wrap { position: relative; }
 .map {
@@ -409,10 +425,12 @@ input:focus, select:focus, button:focus-visible {
 }
 
 /* ---------- editable chain extras ---------- */
-.chain__input {
-  /* Narrow enough that the trailing "ft" is never clipped on a small phone. */
+.chain__value .chain__input {
+  /* Scoped to beat input[type="number"]{width:100%}, which is the same
+     specificity as a bare .chain__input and was silently winning - the
+     trailing "ft" got pushed out of the row. */
   width: 64px;
-  flex: none;
+  flex: 0 0 auto;
   padding: 4px 7px;
   font-size: 0.92rem;
   font-weight: 700;
@@ -697,7 +715,7 @@ table.lines--plain td { border-bottom: 1px solid rgba(0,0,0,.07); padding: 5px 1
 
 /* ---------- wider screens ---------- */
 @media (min-width: 420px) {
-  .chain__input { width: 76px; }
+  .chain__value .chain__input { width: 76px; }
 }
 
 @media (min-width: 620px) {

@@ -36,6 +36,7 @@ const NUMERIC_RULES = [
   'miters_per_corner', 'tear_off_included',
 ];
 
+
 /** Rules the estimator cannot run without. */
 const REQUIRED_RULES = [
   'waste_factor', 'downspout_ft_per_story', 'max_gutter_lf_per_downspout',

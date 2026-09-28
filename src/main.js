@@ -420,8 +420,8 @@ async function init() {
   function renderAll() {
     mapHandle?.destroy();
     mapHandle = null;
-    app.innerHTML = renderForm(config, state)
-                  + renderMeasurement(state, currentChain())
+    // The measurement goes inside the job card, directly under the address.
+    app.innerHTML = renderForm(config, state, renderMeasurement(state, currentChain()))
                   + '<div id="result"></div>';
     updateResult();
     bind();

@@ -121,15 +121,25 @@ export async function renderBuildingMap(el, measurement, onSelect) {
     }).addTo(map).bindTooltip('Address location', { direction: 'top' });
   }
 
-  // Frame the CHOSEN building, not the whole candidate set. Fitting every
-  // candidate zooms out far enough that the customer cannot recognise their
-  // own roof, which defeats the point of showing them a picture. The padding
-  // is generous enough that close neighbours stay tappable.
-  map.fitBounds(chosen.getBounds().pad(0.9), { maxZoom: 20 });
-
-  // Leaflet mis-sizes itself inside a container that was hidden or has just
-  // been inserted; nudge it once the browser has laid the page out.
-  setTimeout(() => map.invalidateSize(), 0);
+  /**
+   * Frame the CHOSEN building, not the whole candidate set. Fitting every
+   * candidate zooms out far enough that the customer cannot recognise their
+   * own roof, which defeats the point of showing them a picture. The padding
+   * is generous enough that close neighbours stay tappable.
+   *
+   * ORDER MATTERS. Leaflet measures its container when it is created, and the
+   * container has just been written into the DOM, so it can still read as zero
+   * sized - fitBounds then computes a zoom for a 0x0 viewport and lands on the
+   * whole world. Size it first, fit second, and repeat once the browser has
+   * actually laid the page out.
+   */
+  const frame = () => {
+    map.invalidateSize({ animate: false });
+    map.fitBounds(chosen.getBounds().pad(0.9), { maxZoom: 20, animate: false });
+  };
+  frame();
+  requestAnimationFrame(frame);
+  setTimeout(frame, 120);
 
   return {
     map,
