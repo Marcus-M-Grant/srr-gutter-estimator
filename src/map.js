@@ -148,3 +148,106 @@ export async function renderBuildingMap(el, measurement, onSelect) {
     },
   };
 }
+
+const STYLE_TRACE = { color: '#FF6B27', weight: 3, fillColor: '#FF6B27', fillOpacity: 0.22 };
+const STYLE_TRACE_OPEN = { color: '#FF6B27', weight: 3, dashArray: '6,6' };
+
+/**
+ * Let the customer trace their own roof, for addresses OpenStreetMap has no
+ * outline for. The geocoder still found the house, so the map opens on the
+ * address pin at rooftop zoom; each tap adds a corner, and corners can be
+ * dragged to fine-tune (taps on a phone are rarely exact).
+ *
+ * The page is NOT re-rendered per tap - that would rebuild the map and throw
+ * away the customer's pan and zoom. Instead `onChange` gets the corner list
+ * and the caller updates a readout in place.
+ *
+ * @param {HTMLElement} el
+ * @param {object} opts
+ * @param {{lat:number, lon:number}} opts.point    where to centre the map
+ * @param {{lat:number, lon:number}[]} [opts.corners]  corners already placed
+ * @param {function} [opts.onChange]  called with the corner list after edits
+ * @returns {Promise<object|null>} a handle with undo(), clear(), destroy()
+ */
+export async function renderTraceMap(el, { point, corners = [], onChange } = {}) {
+  const L = await loadLeaflet();
+  if (!L || !el || !point) return null;
+
+  let map;
+  try {
+    map = L.map(el, { zoomControl: true, scrollWheelZoom: false });
+  } catch (err) {
+    console.warn('Could not create the tracing map:', err);
+    return null;
+  }
+  tileConfig(L).addTo(map);
+
+  let pts = corners.map((p) => ({ lat: p.lat, lon: p.lon }));
+  const shape = L.layerGroup().addTo(map);
+  const handles = L.layerGroup().addTo(map);
+
+  L.circleMarker([point.lat, point.lon], {
+    radius: 5, color: '#ffffff', weight: 2, fillColor: '#003FBE', fillOpacity: 1,
+    interactive: false,
+  }).addTo(map);
+
+  const cornerIcon = L.divIcon({
+    className: 'trace-corner', iconSize: [16, 16], iconAnchor: [8, 8],
+  });
+
+  const changed = () => onChange?.(pts.map((p) => ({ ...p })));
+
+  function redraw() {
+    shape.clearLayers();
+    handles.clearLayers();
+    const latlngs = pts.map((p) => [p.lat, p.lon]);
+    if (pts.length >= 3) L.polygon(latlngs, STYLE_TRACE).addTo(shape);
+    else if (pts.length === 2) L.polyline(latlngs, STYLE_TRACE_OPEN).addTo(shape);
+
+    pts.forEach((p, i) => {
+      const m = L.marker([p.lat, p.lon], { icon: cornerIcon, draggable: true })
+        .addTo(handles);
+      m.on('drag', (e) => {
+        const ll = e.target.getLatLng();
+        pts[i] = { lat: ll.lat, lon: ll.lng };
+        // Move the outline with the finger, but keep the marker being dragged.
+        shape.clearLayers();
+        const live = pts.map((q) => [q.lat, q.lon]);
+        if (pts.length >= 3) L.polygon(live, STYLE_TRACE).addTo(shape);
+        else if (pts.length === 2) L.polyline(live, STYLE_TRACE_OPEN).addTo(shape);
+      });
+      m.on('dragend', () => { redraw(); changed(); });
+    });
+  }
+
+  map.on('click', (e) => {
+    pts.push({ lat: e.latlng.lat, lon: e.latlng.lng });
+    redraw();
+    changed();
+  });
+
+  // Same zero-size-container trap as renderBuildingMap: size, then frame.
+  const frame = () => {
+    map.invalidateSize({ animate: false });
+    if (pts.length >= 2) {
+      map.fitBounds(L.latLngBounds(pts.map((p) => [p.lat, p.lon])).pad(0.6),
+        { maxZoom: 20, animate: false });
+    } else {
+      map.setView([point.lat, point.lon], 20, { animate: false });
+    }
+  };
+  // Leaflet cannot place markers until the map has a view, so frame first.
+  frame();
+  redraw();
+  requestAnimationFrame(frame);
+  setTimeout(frame, 120);
+
+  return {
+    map,
+    undo() { pts.pop(); redraw(); changed(); },
+    clear() { pts = []; redraw(); changed(); },
+    destroy() {
+      try { map.remove(); } catch { /* already gone */ }
+    },
+  };
+}

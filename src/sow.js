@@ -114,6 +114,9 @@ function sourcePhrase(lfSource) {
   switch (lfSource) {
     case 'osm':
       return 'measured from the building outline on file for this address';
+    case 'traced':
+      return 'measured from a roof outline the customer traced on satellite '
+           + 'imagery of this address';
     case 'sqft':
       return 'calculated from the home square footage and story count supplied '
            + 'by the customer';

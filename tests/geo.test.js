@@ -15,7 +15,7 @@ import {
   perimeterToGutterLF, sqftToPerimeterFt, parseOverpass, overpassQuery,
   normalizeAddress, measureAddress, resolveGutterLF, GEO_DEFAULTS,
   gradeConfidence, geocoderChain, geocodeCensus, geocodeNominatim, geocode,
-  deriveGutterRun,
+  deriveGutterRun, measurementFromTrace,
 } from '../src/geo.js';
 
 /** The real rule values, as they sit on the Rules tab. */
@@ -713,4 +713,47 @@ test('the selected walls always sum to the stated perimeter', () => {
       assert.equal(r.sideCount, 4 - off.length);
     }
   }
+});
+
+// ---------------------------------------------------------------------------
+// Method A2: a customer-traced outline
+// ---------------------------------------------------------------------------
+
+test('a failed lookup says whether the ADDRESS or the OUTLINE was missing', async () => {
+  const noAddress = await measureAddress('x', {
+    rules: RULES, useCache: false, deps: stubDeps({ geocode: null }) });
+  assert.equal(noAddress.reasonCode, 'no-address');
+  assert.equal(noAddress.point, undefined);
+
+  // Found the address, no building drawn there: the point comes back so the
+  // customer can trace the roof on the map instead.
+  const noOutline = await measureAddress('410 W 59th St', {
+    rules: RULES, useCache: false,
+    deps: stubDeps({ geocode: { lat: LAT0, lon: LON0 }, overpass: [] }) });
+  assert.equal(noOutline.reasonCode, 'no-outline');
+  assert.equal(noOutline.point.lat, LAT0);
+});
+
+test('a traced outline measures exactly like an OSM footprint', () => {
+  const rect = rectangle(50, 30);
+  const traced = measurementFromTrace(openRing(rect), { lat: LAT0, lon: LON0 });
+  assert.equal(traced.ok, true);
+  assert.equal(traced.method, 'traced');
+  assert.equal(traced.lfSource, 'traced');
+  assert.equal(traced.sideCount, 4);
+  assert.equal(traced.sides.length, 4);
+  assert.ok(Math.abs(traced.perimeterFt - polygonPerimeterFt(rect)) < 1e-9);
+  assert.ok(Math.abs(traced.perimeterFt - 160) < 0.5);
+
+  // The wall toggles work on it like any other outline.
+  const run = deriveGutterRun({ measurement: traced, disabledSides: [1, 3], rules: RULES });
+  assert.equal(run.source, 'sides-selected');
+  assert.ok(Math.abs(run.perimeterFt - 100) < 0.5);
+});
+
+test('a trace needs three corners, and tolerates the closing tap', () => {
+  const rect = rectangle(40, 40);
+  assert.equal(measurementFromTrace([]), null);
+  assert.equal(measurementFromTrace(openRing(rect).slice(0, 2)), null);
+  assert.equal(measurementFromTrace(rect).sideCount, 4);   // closed ring
 });

@@ -152,6 +152,8 @@ test('assumptions record how the footage was derived', () => {
   assert.match(manual, /Gutter footage: 200 LF, supplied by the customer/);
   assert.match(flat(worked({ lfSource: 'osm' })),
     /measured from the building outline on file for this address/);
+  assert.match(flat(worked({ lfSource: 'traced' })),
+    /measured from a roof outline the customer traced on satellite imagery/);
   assert.match(flat(worked({ lfSource: 'sqft' })),
     /calculated from the home square footage and story count supplied by the customer/);
 

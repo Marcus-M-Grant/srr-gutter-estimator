@@ -12,8 +12,8 @@ confirm step is load-bearing, not cosmetic. Only phase 7 (copy pass) remains.
 
 A customer can type an address, see their building outlined on satellite
 imagery, correct it if we picked the wrong one, switch off walls that have no
-gutter, type their own perimeter, fall back to floor area when there is no
-outline, pick a roof type, and get an itemized price with a downloadable
+gutter, type their own perimeter, trace their own roof on the satellite
+picture when OpenStreetMap has no outline (or fall back to floor area), pick a roof type, and get an itemized price with a downloadable
 statement of work. Every step shows its working and every step is overridable.
 
 ## Hard constraints this is built under

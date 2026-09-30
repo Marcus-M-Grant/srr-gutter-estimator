@@ -118,7 +118,7 @@ const ACCESSORIES = [
  * @param {object} config  { pricing, rules } from config.js
  * @param {object} inputs
  * @param {number} inputs.measuredLF   gutter linear feet (already roof-factored)
- * @param {string} [inputs.lfSource]   'osm' | 'sqft' | 'manual'
+ * @param {string} [inputs.lfSource]   'osm' | 'traced' | 'sqft' | 'manual'
  * @param {number} [inputs.stories]    1-3
  * @param {string} inputs.material     'Aluminum' | 'Copper'
  * @param {string} inputs.profile      e.g. 'K Style 5"'

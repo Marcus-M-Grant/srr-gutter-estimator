@@ -272,6 +272,42 @@ export function deriveGutterRun({
 }
 
 /**
+ * Method A2: an outline the customer traced on the satellite picture.
+ *
+ * For the addresses where the geocoder found the house but OpenStreetMap has
+ * never had the building traced - whole neighbourhoods of the Inland Empire,
+ * for one. The address pin still tells us where to point the map, so the
+ * customer taps the corners of their roof and the perimeter is the same
+ * trigonometry as an OSM footprint. Returns a measurement-shaped object so the
+ * wall toggles, roof picker and statement of work all work unchanged.
+ *
+ * @param {{lat:number, lon:number}[]} corners  in tap order, not closed
+ * @returns {object|null}  null until there are at least three corners
+ */
+export function measurementFromTrace(corners, point = null) {
+  const ring = openRing((corners ?? []).filter(
+    (p) => Number.isFinite(p?.lat) && Number.isFinite(p?.lon)));
+  if (ring.length < 3) return null;
+  return {
+    ok: true,
+    method: 'traced',
+    lfSource: 'traced',
+    confidence: 'traced by you',
+    point,
+    perimeterFt: polygonPerimeterFt(ring),
+    corners: ring.length,
+    sideCount: ring.length,
+    sides: sideLengthsFt(ring),
+    coords: ring,
+    alternatives: [],
+    candidateCount: 1,
+    selection: 'customer-traced',
+    needsConfirmation: false,
+    chosenDistanceFt: 0,
+  };
+}
+
+/**
  * Method B: square footage maths, for addresses OSM has no footprint for.
  * A perfect square has perimeter 4*sqrt(area); real houses are rectangular
  * with bump-outs, which is what footprint_shape_factor corrects for.
@@ -489,7 +525,7 @@ export async function measureAddress(address, opts = {}) {
   }
   if (!point) {
     return {
-      ok: false, method: null,
+      ok: false, method: null, reasonCode: 'no-address',
       reason: 'We could not find that address on the map.',
     };
   }
@@ -515,7 +551,7 @@ export async function measureAddress(address, opts = {}) {
     }
   } catch (err) {
     return {
-      ok: false, method: null, point,
+      ok: false, method: null, point, reasonCode: 'outline-service',
       reason: err.message === 'timed out'
         ? 'The public building-outline service is busy right now.'
         : `We could not reach the building-outline service (${err.message}).`,
@@ -524,7 +560,7 @@ export async function measureAddress(address, opts = {}) {
 
   if (!candidates.length) {
     return {
-      ok: false, method: null, point,
+      ok: false, method: null, point, reasonCode: 'no-outline',
       reason: 'There is no building outline on file for that address yet.',
     };
   }

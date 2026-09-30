@@ -162,6 +162,10 @@ export function initialState(config) {
     measurement: null,        // a measureAddress result, or null
     lookupStatus: 'idle',     // idle | looking | done | error
     lookupError: '',
+    lookupReasonCode: null,   // no-address | no-outline | outline-service
+    lookupPoint: null,        // where the address geocoded, even with no outline
+    traceCorners: [],         // corners the customer tapped (Method A2)
+    tracePerimeterFt: 0,
     buildingConfirmed: false,
     roofType: 'unknown',
     perimeterOverride: null,  // a perimeter the customer typed
@@ -271,10 +275,10 @@ function renderSides(state, m) {
  *
  * Labelled a rough estimate, because that is what it is.
  */
-function renderSqFtFallback(state) {
+function renderSqFtFallback(state, heading = 'Estimate from the size of the home instead') {
   return `
   <div class="fallback">
-    <p class="fallback__head">Estimate from the size of the home instead</p>
+    <p class="fallback__head">${heading}</p>
     <div class="two-up">
       <div class="field">
         <label for="sqFt">Total home square footage</label>
@@ -295,6 +299,44 @@ function renderSqFtFallback(state) {
       building. Every number stays editable.
     </p>
   </div>`;
+}
+
+/**
+ * Method A2 as a UI: trace the roof on the satellite picture. The readout and
+ * button states are updated in place by main.js as corners are tapped, so the
+ * map is not rebuilt (and the customer's zoom lost) on every tap.
+ */
+export function traceReadout(corners, perimeterFt) {
+  const n = corners?.length ?? 0;
+  if (n === 0) return 'Tap the first corner of your roof.';
+  if (n < 3) return `${n} corner${n === 1 ? '' : 's'} placed &mdash; keep going around the roof.`;
+  return `${n} corners, about <strong>${Math.round(perimeterFt)} ft</strong> around.
+    Tap more corners for bump-outs, or use this outline.`;
+}
+
+function renderTracePanel(state) {
+  const corners = state.traceCorners ?? [];
+  const ready = corners.length >= 3;
+  return `
+    <div class="map-wrap">
+      <div id="trace-map" class="map map--trace" role="application"
+           aria-label="Satellite view of your address. Tap the corners of your roof."></div>
+      <span class="map-badge map-badge--check">tap the corners</span>
+    </div>
+    <p class="hint trace-readout" id="trace-readout" aria-live="polite">
+      ${traceReadout(corners, state.tracePerimeterFt ?? 0)}
+    </p>
+    <div class="actions">
+      <button type="button" class="btn btn--primary" id="use-trace" ${ready ? '' : 'disabled'}>
+        Use this outline
+      </button>
+      <button type="button" class="btn btn--ghost" id="undo-trace" ${corners.length ? '' : 'disabled'}>
+        Undo corner
+      </button>
+      <button type="button" class="btn btn--ghost" id="clear-trace" ${corners.length ? '' : 'disabled'}>
+        Start over
+      </button>
+    </div>`;
 }
 
 /** The chain from spec 6.5: every step visible, every step overridable. */
@@ -360,12 +402,35 @@ export function renderMeasurement(state, chain) {
     </div>`;
   }
 
-  if (state.lookupStatus === 'error') {
+  if (state.lookupStatus === 'error' && state.lookupPoint) {
+    // The address WAS found - only the building outline is missing (or the
+    // outline service is down). Saying "we could not find that building" here
+    // reads as "we could not find your address", which is wrong and sends
+    // people off retyping a perfectly good address. Let them trace it instead.
     return `<div class="measure" id="measurement">
-      <h2>We could not find that building</h2>
+      <h3 class="measure__title">We found your address &mdash; now outline your roof</h3>
+      <p class="hint">
+        ${state.lookupReasonCode === 'no-outline'
+          ? 'Public map data does not have your building drawn in yet, so we cannot measure it automatically.'
+          : esc(state.lookupError)}
+        Tap each corner of your roof on the picture, in order, and we will measure
+        it. Drag a corner to adjust it.
+      </p>
+      ${renderTracePanel(state)}
+      ${renderSqFtFallback(state, 'Or estimate from the size of the home')}
+    </div>`;
+  }
+
+  if (state.lookupStatus === 'error') {
+    const notFound = state.lookupReasonCode === 'no-address';
+    return `<div class="measure" id="measurement">
+      <h2>${notFound ? 'We could not find that address' : 'We could not find that building'}</h2>
       <div class="notice"><strong>${esc(state.lookupError)}</strong>
-        No problem. Give us the size of the home instead, or just type the
-        linear feet below &mdash; an estimator confirms the real footage on site.
+        ${notFound ? `Check the street number and ZIP, and leave off any unit or
+          apartment number. Still stuck? Give us the size of the home instead, or
+          just type the linear feet below.` : `No problem. Give us the size of the
+          home instead, or just type the linear feet below.`}
+        An estimator confirms the real footage on site.
       </div>
       ${renderSqFtFallback(state)}
     </div>`;
@@ -379,12 +444,16 @@ export function renderMeasurement(state, chain) {
   return `
   <div class="measure" id="measurement">
     <h3 class="measure__title">${m.method === 'sqft'
-      ? 'Estimated from the floor area' : 'Is this your building?'}</h3>
+      ? 'Estimated from the floor area'
+      : m.method === 'traced' ? 'Your roof outline' : 'Is this your building?'}</h3>
     <p class="hint">
       ${m.method === 'sqft'
         ? `Worked out from ${Math.round(m.footprintSqFt)} sq ft of footprint. This is a
            rough estimate, not a measurement of your building &mdash; adjust anything
            that looks off.`
+        : m.method === 'traced'
+        ? `Measured from the corners you tapped. Switch off any wall without gutter
+           below &mdash; a Specialist Roofing estimator confirms exact footage on site.`
         : `We pulled an approximate outline of the building at that address. Adjust
            anything that looks off &mdash; a Specialist Roofing estimator confirms exact
            footage on site.`}
@@ -421,12 +490,13 @@ export function renderMeasurement(state, chain) {
         ${state.buildingConfirmed ? 'Footage applied' : 'Yes, use this footage'}
       </button>
       <button type="button" class="btn btn--ghost" id="reject-measurement">
-        Not my building
+        ${m.method === 'traced' ? 'Redraw outline' : 'Not my building'}
       </button>
     </div>
     ${state.sqFtOpen ? renderSqFtFallback(state) : ''}
     <p class="hint" style="margin:10px 0 0">
-      This is a starting point from public map data, not a survey.
+      ${m.method === 'traced' ? 'This is a starting point from your tracing, not a survey.'
+        : 'This is a starting point from public map data, not a survey.'}
       ${m.searchRadiusM > 30 ? 'The building sits well back from the road, so we widened the search. ' : ''}
       You can edit the linear feet below at any time.
     </p>

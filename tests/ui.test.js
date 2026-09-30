@@ -114,3 +114,34 @@ test('the default material is aluminium when it is on offer', async () => {
   };
   assert.equal(initialState(config).material, 'Aluminum');
 });
+
+import { renderMeasurement, traceReadout } from '../src/ui.js';
+
+test('an address that was found but has no outline offers tracing, not "not found"', () => {
+  const html = renderMeasurement({
+    lookupStatus: 'error', lookupReasonCode: 'no-outline',
+    lookupError: 'There is no building outline on file for that address yet.',
+    lookupPoint: { lat: 34.18, lon: -117.29 }, traceCorners: [],
+  });
+  assert.match(html, /We found your address/);
+  assert.match(html, /id="trace-map"/);
+  assert.match(html, /id="use-trace"[^>]*disabled/);
+  assert.match(html, /size of the home/);
+  assert.doesNotMatch(html, /could not find/i);
+});
+
+test('an address the geocoder could not place says so, with tips', () => {
+  const html = renderMeasurement({
+    lookupStatus: 'error', lookupReasonCode: 'no-address',
+    lookupError: 'We could not find that address on the map.', lookupPoint: null,
+  });
+  assert.match(html, /We could not find that address/);
+  assert.match(html, /unit or\s+apartment number/);
+  assert.doesNotMatch(html, /trace-map/);
+});
+
+test('the trace readout counts corners and reports the perimeter', () => {
+  assert.match(traceReadout([], 0), /first corner/);
+  assert.match(traceReadout([{}, {}], 0), /2 corners placed/);
+  assert.match(traceReadout([{}, {}, {}, {}], 158.6), /4 corners, about <strong>159 ft/);
+});

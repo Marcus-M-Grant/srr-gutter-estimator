@@ -387,6 +387,18 @@ input:focus, select:focus, button:focus-visible {
 .map-badge--ok { background: #1a6b36; }
 .map-badge--check { background: var(--orange); }
 
+/* Tracing: taller so a roof fills it, crosshair so a tap reads as "place". */
+.map--trace { height: 320px; cursor: crosshair; }
+.map--trace.leaflet-container { cursor: crosshair; }
+.trace-corner {
+  background: #fff;
+  border: 3px solid var(--orange);
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  cursor: move;
+}
+.trace-readout { margin: 10px 0; }
+
 /* Leaflet's own attribution must stay legible - it is a licence condition. */
 .leaflet-container { font-family: var(--font-body); }
 .leaflet-control-attribution { font-size: 10px !important; }

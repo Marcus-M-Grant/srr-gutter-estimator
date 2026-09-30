@@ -12,12 +12,12 @@ import { generateSow, sowFilename } from './sow.js';
 import { generateSowPdf, pdfFilename } from './pdf.js';
 import {
   measureAddress, deriveGutterRun, sqftToPerimeterFt,
-  polygonPerimeterFt, countVertices, sideLengthsFt,
+  polygonPerimeterFt, countVertices, sideLengthsFt, measurementFromTrace,
 } from './geo.js';
-import { renderBuildingMap } from './map.js';
+import { renderBuildingMap, renderTraceMap } from './map.js';
 import {
   initialState, renderForm, renderResult, renderMeasurement, readForm, esc,
-  ROOF_TYPES, fullAddress, addressIsUsable,
+  ROOF_TYPES, fullAddress, addressIsUsable, traceReadout,
 } from './ui.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -162,7 +162,8 @@ async function init() {
     // Provenance must follow the measurement, not be assumed. Method B is a
     // square-footage estimate and the statement of work has to say so rather
     // than claiming a building outline it never had.
-    state.lfSource = state.measurement?.method === 'sqft' ? 'sqft' : 'osm';
+    const method = state.measurement?.method;
+    state.lfSource = method === 'sqft' || method === 'traced' ? method : 'osm';
     state.lfOverridden = false;
     state.buildingConfirmed = true;
   }
@@ -170,6 +171,20 @@ async function init() {
   async function drawMap() {
     mapHandle?.destroy();
     mapHandle = null;
+    const traceEl = document.getElementById('trace-map');
+    if (traceEl && state.lookupPoint) {
+      mapHandle = await renderTraceMap(traceEl, {
+        point: state.lookupPoint,
+        corners: state.traceCorners,
+        onChange: onTraceChange,
+      });
+      if (!mapHandle) {
+        traceEl.innerHTML = '<p class="hint" style="padding:12px;margin:0">' +
+          'The map could not load, so tracing is unavailable. ' +
+          'Use the size of the home below instead.</p>';
+      }
+      return;
+    }
     const el = document.getElementById('map');
     if (!el || !state.measurement?.ok) return;
     mapHandle = await renderBuildingMap(el, state.measurement, selectAlternative);
@@ -180,6 +195,34 @@ async function init() {
         'The map could not load, so we cannot show you the outline. ' +
         'The footage below still comes from the building data.</p>';
     }
+  }
+
+  /**
+   * A corner was tapped, dragged or undone. Update the readout and buttons in
+   * place - a full re-render would rebuild the map and lose the zoom.
+   */
+  function onTraceChange(corners) {
+    state.traceCorners = corners;
+    state.tracePerimeterFt = measurementFromTrace(corners)?.perimeterFt ?? 0;
+    const readout = $('#trace-readout');
+    if (readout) readout.innerHTML = traceReadout(corners, state.tracePerimeterFt);
+    const use = $('#use-trace');
+    if (use) use.disabled = corners.length < 3;
+    for (const id of ['#undo-trace', '#clear-trace']) {
+      const b = $(id);
+      if (b) b.disabled = corners.length === 0;
+    }
+  }
+
+  function useTrace() {
+    const m = measurementFromTrace(state.traceCorners, state.lookupPoint);
+    if (!m) return;
+    state.measurement = m;
+    state.lookupStatus = 'done';
+    state.perimeterOverride = null;
+    state.disabledSides = [];
+    applyMeasurementToLF({ force: true });
+    renderAll();
   }
 
   /**
@@ -267,6 +310,10 @@ async function init() {
 
     state.lookupStatus = 'looking';
     state.measurement = null;
+    state.lookupPoint = null;
+    state.lookupReasonCode = null;
+    state.traceCorners = [];
+    state.tracePerimeterFt = 0;
     state.perimeterOverride = null;
     state.disabledSides = [];
     renderAll();
@@ -287,6 +334,9 @@ async function init() {
       state.measurement = null;
       state.lookupStatus = 'error';
       state.lookupError = m.reason ?? 'We could not measure that address.';
+      state.lookupReasonCode = m.reasonCode ?? null;
+      // Keep the geocoded point: with it, the customer can trace the roof.
+      state.lookupPoint = m.point ?? null;
     }
     renderAll();
   }
@@ -294,6 +344,17 @@ async function init() {
   function rejectMeasurement() {
     mapHandle?.destroy();
     mapHandle = null;
+    if (state.measurement?.method === 'traced') {
+      // Back to the tracing map with their corners still in place to adjust.
+      state.measurement = null;
+      state.lookupStatus = 'error';
+      state.perimeterOverride = null;
+      state.disabledSides = [];
+      state.buildingConfirmed = false;
+      state.lfSource = 'manual';
+      renderAll();
+      return;
+    }
     state.measurement = null;
     state.lookupStatus = state.sqFtOpen ? 'error' : 'idle';
     state.lookupError = state.sqFtOpen
@@ -442,6 +503,9 @@ async function init() {
       rejectMeasurement();
     });
     $('#use-sqft')?.addEventListener('click', useSquareFootage);
+    $('#use-trace')?.addEventListener('click', useTrace);
+    $('#undo-trace')?.addEventListener('click', () => mapHandle?.undo?.());
+    $('#clear-trace')?.addEventListener('click', () => mapHandle?.clear?.());
     $('#show-sides')?.addEventListener('click', () => {
       state.showSides = true; renderAll();
     });
