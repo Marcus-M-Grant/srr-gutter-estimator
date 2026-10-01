@@ -1,0 +1,54 @@
+# Deploy srrgutters.com (HostGator) on every push to main.
+#
+# marcusmgrant.com/srr-gutter-estimator is GitHub Pages and deploys itself
+# from main; this workflow handles the HostGator copy, so one push updates both.
+#
+# Secrets (repo Settings -> Secrets and variables -> Actions):
+#   FTP_SERVER    ftp.laroofrepairs.com (the account's main domain)
+#   FTP_USERNAME  the FTP account, rooted at /home3/laroof/srrgutters.com
+#   FTP_PASSWORD
+#
+# Nothing is uploaded unless the tests pass. Only files this workflow uploaded
+# itself are ever deleted on the server (tracked in a sync-state file), so
+# .well-known (HTTPS certificate renewal) and cgi-bin are never touched.
+
+name: Deploy to HostGator
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-hostgator
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Test
+        run: npm test
+
+      - name: Build dist/
+        run: npm run package
+
+      - name: Upload over FTPS
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          port: 21
+          # Shared hosting presents the server's own certificate, not one for
+          # ftp.laroofrepairs.com. Still encrypted; just not name-checked.
+          security: loose
+          local-dir: ./dist/
+          server-dir: ./

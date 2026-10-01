@@ -143,7 +143,13 @@ npm run package
 ```
 
 Builds `dist/` with only the files the browser actually loads, plus an
-`.htaccess`. Upload the **contents** of `dist/` into `public_html`.
+`.htaccess`.
+
+**Pushing to `main` deploys automatically** via
+`.github/workflows/deploy-hostgator.yml`: tests, then `npm run package`, then an
+FTPS upload into `/home3/laroof/srrgutters.com` (the site's folder - not
+`public_html`). The FTP login lives only in the repo's Actions secrets. To
+deploy by hand instead, upload the **contents** of `dist/` into that folder.
 
 The site uses relative paths throughout, so it works at a domain root with no
 changes - nothing to rebuild or rewrite when moving off the `/srr-gutter-estimator`
@@ -171,7 +177,7 @@ bundle. The `.xlsx` holds `Unit Cost` and must never sit in a public web root.
 ```bash
 npm run snapshot   # refresh the offline fallback from the live sheet
 npm test
-npm run package    # rebuild dist/, re-upload
+git push           # deploys srrgutters.com and GitHub Pages
 ```
 
 Customers see sheet edits immediately either way - the snapshot only matters

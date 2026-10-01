@@ -75,6 +75,11 @@ const HTACCESS = `# SRR Gutter Estimator - Apache config for HostGator shared ho
 </IfModule>
 
 # --- tidy ----------------------------------------------------------------
+# The deploy workflow's sync-state file lists every file it uploaded. Harmless,
+# but there is no reason to serve it.
+<Files ".ftp-deploy-sync-state.json">
+  Require all denied
+</Files>
 Options -Indexes
 DirectoryIndex index.html
 `;
