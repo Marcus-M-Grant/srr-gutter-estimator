@@ -19,6 +19,7 @@ import { buildLead, sendLead, validateContact, cleanContact } from './notify.js'
 import {
   initialState, renderForm, renderResult, renderMeasurement, readForm, esc,
   ROOF_TYPES, fullAddress, addressIsUsable, traceReadout,
+  renderProgress, warrantyStatus,
 } from './ui.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -457,6 +458,8 @@ async function init() {
       notifyLead(result);
 
       const blob = await generateSowPdf(config, result, { address, date, customer });
+      state.estimateSaved = true;
+      updateProgress();
       if (blob) {
         const name = pdfFilename(address, date);
         saveBlob(blob, name);
@@ -479,6 +482,8 @@ async function init() {
       let result;
       ({ text, result } = currentSow());
       notifyLead(result);
+      state.estimateSaved = true;
+      updateProgress();
     } catch (err) {
       setSowStatus(`Could not build the document: ${err.message}`);
       return;
@@ -503,6 +508,24 @@ async function init() {
     }
   }
 
+  /** Redraw the progress bar from state. Cheap, so it runs on every update. */
+  function updateProgress() {
+    const nav = $('#progress');
+    if (!nav) return;
+    nav.innerHTML = renderProgress(state);
+    nav.hidden = false;
+    for (const btn of nav.querySelectorAll('button[data-target]')) {
+      btn.addEventListener('click', () => {
+        // The estimate step only exists once there is a price; until then,
+        // send them to where the price will appear.
+        const el = document.getElementById(btn.dataset.target)
+                ?? document.getElementById('result');
+        el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (el?.matches?.('input')) el.focus({ preventScroll: true });
+      });
+    }
+  }
+
   /** Re-render the result only. The form keeps its DOM so focus is not lost. */
   function updateResult() {
     $('#result').innerHTML = renderResult(config, estimatorInputs());
@@ -511,8 +534,11 @@ async function init() {
     for (const key of ['name', 'phone', 'email']) {
       $(`#contact-${key}`)?.addEventListener('input', (e) => {
         state.contact = { ...state.contact, [key]: e.target.value };
+        const status = $('#warranty-status');
+        if (status) status.innerHTML = warrantyStatus(state.contact);
       });
     }
+    updateProgress();
     onEstimateComplete();
   }
 
@@ -562,20 +588,6 @@ async function init() {
     $('#hide-sides')?.addEventListener('click', () => {
       state.showSides = false; renderAll();
     });
-    $('#clear-perimeter')?.addEventListener('click', () => {
-      state.perimeterOverride = null;
-      applyMeasurementToLF({ force: true });
-      renderAll();
-    });
-
-    // Editing the perimeter recalculates downstream immediately.
-    $('#perimeter-input')?.addEventListener('change', (e) => {
-      const v = Number(e.target.value);
-      state.perimeterOverride = Number.isFinite(v) && v > 0 ? v : null;
-      applyMeasurementToLF({ force: true });
-      renderAll();
-    });
-
     for (const box of document.querySelectorAll('.side-toggle')) {
       box.addEventListener('change', () => {
         const idx = Number(box.dataset.side);
@@ -604,6 +616,7 @@ async function init() {
     for (const radio of document.querySelectorAll('input[name="roofType"]')) {
       radio.addEventListener('change', () => {
         state.roofType = radio.value;
+        state.styleTouched = true;
         applyMeasurementToLF();
         renderAll();
       });
@@ -615,6 +628,8 @@ async function init() {
       const previousLF = state.measuredLF;
 
       state = readForm(form, state);
+      if (['stories', 'material', 'profile', 'guards', 'runs', 'corners']
+        .includes(e.target?.name)) state.styleTouched = true;
 
       // A hand-typed footage detaches from the measurement and must not be
       // overwritten when anything else changes.

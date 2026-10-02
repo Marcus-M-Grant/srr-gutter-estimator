@@ -27,6 +27,16 @@ export function looksLikePhone(v) {
 }
 
 /**
+ * The free 10-year warranty is the reason to leave details: a name, plus a
+ * phone or an email we can actually reach them on. Shared by the page, the
+ * estimate and the lead email so all three agree on who qualifies.
+ */
+export function qualifiesForWarranty(contact = {}) {
+  return clip(contact.name, 999) !== ''
+    && (looksLikePhone(contact.phone) || looksLikeEmail(contact.email));
+}
+
+/**
  * Check what the customer typed. Blank is always fine; something typed that
  * cannot be a phone number or an email gets a message, so the estimate is
  * not printed with a number nobody can call.
@@ -80,6 +90,7 @@ export function buildLead({ contact, address, result, state, honeypot = '', page
         + `${state?.stories ?? 1} ${state?.stories === 1 ? 'story' : 'stories'}`
         + `${state?.guards ? ', with gutter guards' : ''}`
       : '',
+    warranty: qualifiesForWarranty(contact) ? 'yes' : 'no',
     page: clip(page, 200),
     website: honeypot,   // the honeypot travels under a boring name
   };

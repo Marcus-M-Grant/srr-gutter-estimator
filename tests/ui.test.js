@@ -145,3 +145,47 @@ test('the trace readout counts corners and reports the perimeter', () => {
   assert.match(traceReadout([{}, {}], 0), /2 corners placed/);
   assert.match(traceReadout([{}, {}, {}, {}], 158.6), /4 corners, about <strong>159 ft/);
 });
+
+import { progressSteps, renderProgress, renderContactFields, warrantyStatus } from '../src/ui.js';
+
+const done = (state) => progressSteps(state).filter((s) => s.done).map((s) => s.key);
+const current = (state) => progressSteps(state).find((s) => s.current)?.key;
+
+test('the progress bar moves only for what the customer has done', () => {
+  assert.deepEqual(done({}), []);
+  assert.equal(current({}), 'address');
+
+  const addr = { addressLine: '410 W 59th St', zip: '92407' };
+  assert.deepEqual(done(addr), ['address']);
+  assert.equal(current(addr), 'measure');
+
+  const measured = { ...addr, measuredLF: 180 };
+  assert.deepEqual(done(measured), ['address', 'measure']);
+  assert.equal(current(measured), 'style');
+
+  assert.deepEqual(done({ ...measured, styleTouched: true }), ['address', 'measure', 'style']);
+  // Downloading accepts the pre-selected style, so everything is ticked.
+  assert.deepEqual(done({ ...measured, estimateSaved: true }),
+    ['address', 'measure', 'style', 'estimate']);
+});
+
+test('skipping the address leaves that step open, not the bar stuck', () => {
+  const s = { measuredLF: 200, styleTouched: true };
+  assert.deepEqual(done(s), ['measure', 'style']);
+  assert.equal(current(s), 'address');
+});
+
+test('the bar renders its fill and a tick per finished step', () => {
+  const html = renderProgress({ addressLine: '1 Main St', zip: '91502', measuredLF: 150 });
+  assert.match(html, /width:50%/);
+  assert.match(html, /aria-valuenow="2"/);
+  assert.equal((html.match(/&#10003;/g) ?? []).length, 2);
+  assert.match(html, /aria-current="step"/);
+});
+
+test('the contact block offers the free 10-year warranty, and confirms it', () => {
+  const html = renderContactFields({ contact: {} });
+  assert.match(html, /free 10-year warranty/);
+  assert.equal(warrantyStatus({ name: 'Pat' }), '');
+  assert.match(warrantyStatus({ name: 'Pat', phone: '(626) 555-0100' }), /You qualify/);
+});

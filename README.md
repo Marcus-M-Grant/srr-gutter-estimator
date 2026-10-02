@@ -150,7 +150,10 @@ party service, key or billing account. The GitHub Pages copy posts to the same
 script. It never sends from localhost (add `?notify=1` to test from a dev
 server). `POST ...?dry=1` returns the email it would send without sending it.
 
-The warranty line on every estimate comes from `warrantyText()` in `src/sow.js`.
+Leaving a name plus a phone or email qualifies the customer for the free
+10-year warranty (`qualifiesForWarranty` in `src/notify.js`); only then is the
+warranty printed on their estimate, and the lead email says whether they
+qualified. The warranty wording comes from `warrantyText()` in `src/sow.js`.
 Add a `warranty_text` row to the Rules tab to reword it without a deploy
 (`{company}` is replaced with the company name).
 

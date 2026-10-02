@@ -14,7 +14,7 @@ import { estimate } from '../src/estimator.js';
 import { generateSow, warrantyText, customerRows } from '../src/sow.js';
 import { sowPdfModel } from '../src/pdf.js';
 import {
-  validateContact, cleanContact, buildLead, sendLead,
+  validateContact, cleanContact, buildLead, sendLead, qualifiesForWarranty,
 } from '../src/notify.js';
 import { renderContactFields } from '../src/ui.js';
 
@@ -32,13 +32,30 @@ const CUSTOMER = { name: 'Pat Example', phone: '(626) 555-0100', email: 'pat@exa
 
 // ---- warranty -------------------------------------------------------------
 
-test('every estimate carries the 10-year warranty, in both formats', () => {
-  assert.match(warrantyText(config.rules), /10-year warranty/);
+test('the warranty prints only when the customer qualified, in both formats', () => {
+  assert.match(warrantyText(config.rules), /free 10-year warranty/);
   assert.match(warrantyText(config.rules), /Specialist Roofing/);
-  const pdf = sowPdfModel(config, result(), { address: ADDRESS, date: DATE });
-  assert.match(pdf.warranty, /10-year warranty/);
-  assert.match(generateSow(config, result(), { address: ADDRESS, date: DATE }),
-    /WARRANTY[\s\S]*10-year warranty/);
+
+  const meta = { address: ADDRESS, date: DATE, customer: CUSTOMER };
+  assert.match(sowPdfModel(config, result(), meta).warranty, /free 10-year warranty/);
+  assert.match(generateSow(config, result(), meta), /FREE 10-YEAR WARRANTY[\s\S]*free 10-year/);
+
+  const anon = { address: ADDRESS, date: DATE };
+  assert.equal(sowPdfModel(config, result(), anon).warranty, null);
+  assert.doesNotMatch(generateSow(config, result(), anon), /WARRANTY/);
+});
+
+test('qualifying takes a name plus a phone or an email we can reach', () => {
+  assert.equal(qualifiesForWarranty({}), false);
+  assert.equal(qualifiesForWarranty({ name: 'Pat' }), false);
+  assert.equal(qualifiesForWarranty({ phone: '(626) 555-0100' }), false);
+  assert.equal(qualifiesForWarranty({ name: 'Pat', phone: '555-0100' }), false);
+  assert.equal(qualifiesForWarranty({ name: 'Pat', phone: '(626) 555-0100' }), true);
+  assert.equal(qualifiesForWarranty({ name: 'Pat', email: 'pat@example.com' }), true);
+  assert.equal(buildLead({ contact: CUSTOMER, address: '', result: result(), state: STATE })
+    .warranty, 'yes');
+  assert.equal(buildLead({ contact: {}, address: '', result: result(), state: STATE })
+    .warranty, 'no');
 });
 
 test('the Rules tab can reword the warranty without a deploy', () => {

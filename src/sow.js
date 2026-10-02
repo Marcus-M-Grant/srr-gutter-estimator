@@ -11,6 +11,8 @@
  * or a work order without reflowing.
  */
 
+import { qualifiesForWarranty } from './notify.js';
+
 const WIDTH = 72;
 
 // Line items print the full description on its own line and the code plus the
@@ -47,14 +49,20 @@ function qtyText(n) {
 }
 
 /**
- * The warranty line printed on every estimate. The Rules tab can replace it
- * with a `warranty_text` row, so the wording can change without a deploy; the
- * default deliberately says no more than "10-year warranty" and leaves the
- * terms to the written contract.
+ * The warranty line. Only printed when the customer qualified for it by
+ * leaving their details (see `qualifiesForWarranty`). The Rules tab can
+ * replace the wording with a `warranty_text` row without a deploy; the default
+ * deliberately leaves the terms to the written contract.
  */
 export const DEFAULT_WARRANTY =
-  'All gutter installations by {company} are backed by our 10-year warranty. '
-  + 'Full warranty terms are provided with your written contract.';
+  'This estimate qualifies for a free 10-year warranty on your gutters when '
+  + 'you go with {company}. Full warranty terms are provided with your written '
+  + 'contract.';
+
+/** The warranty paragraph for this customer, or null if they did not qualify. */
+export function warrantyFor(rules, customer) {
+  return qualifiesForWarranty(customer) ? warrantyText(rules) : null;
+}
 
 export function warrantyText(rules = {}) {
   const company = rules.company_name || 'Specialist Roofing & Repair';
@@ -373,11 +381,14 @@ export function generateSow(config, result, meta) {
   L.push('');
 
   // ---- warranty ----------------------------------------------------------
-  L.push(rule());
-  L.push('WARRANTY');
-  L.push(rule());
-  L.push(wrap(warrantyText(rules)));
-  L.push('');
+  const warranty = warrantyFor(rules, customer);
+  if (warranty) {
+    L.push(rule());
+    L.push('FREE 10-YEAR WARRANTY');
+    L.push(rule());
+    L.push(wrap(warranty));
+    L.push('');
+  }
 
   // ---- exclusions --------------------------------------------------------
   L.push(rule());

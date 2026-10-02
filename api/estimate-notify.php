@@ -76,6 +76,7 @@ $lead = [
     'total'   => field('total', 40),
     'range'   => field('range', 80),
     'job'     => field('job', 300),
+    'warranty' => field('warranty', 3),
     'page'    => field('page', 200),
 ];
 if ($lead['total'] === '') reply(400, ['ok' => false, 'error' => 'no estimate']);
@@ -110,6 +111,9 @@ $body = implode("\n", [
     '',
     'Estimate: ' . $lead['total'] . ($lead['range'] !== '' ? '  (range ' . $lead['range'] . ')' : ''),
     'Job:      ' . $or($lead['job']),
+    'Warranty: ' . ($lead['warranty'] === 'yes'
+        ? 'Qualifies for the free 10-year warranty'
+        : 'Did not qualify (no name plus phone or email)'),
     '',
     'Sent ' . date('l, F j, Y g:i A T') . ' from ' . $or($lead['page']),
     ($lead['name'] . $lead['phone'] . $lead['email']) === ''

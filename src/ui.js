@@ -12,6 +12,7 @@
 import {
   estimate, availableMaterials, availableProfiles, guardsAvailable,
 } from './estimator.js';
+import { qualifiesForWarranty } from './notify.js';
 
 export const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -168,6 +169,8 @@ export function initialState(config) {
     tracePerimeterFt: 0,
     contact: { name: '', phone: '', email: '' },   // optional, for the estimate
     contactErrors: {},
+    styleTouched: false,      // progress bar: they chose stories, shape, etc.
+    estimateSaved: false,     // progress bar: they downloaded or copied it
     buildingConfirmed: false,
     roofType: 'unknown',
     perimeterOverride: null,  // a perimeter the customer typed
@@ -341,45 +344,6 @@ function renderTracePanel(state) {
     </div>`;
 }
 
-/** The chain from spec 6.5: every step visible, every step overridable. */
-function renderChain(state, chain, m) {
-  const overridden = Number.isFinite(state.perimeterOverride);
-  return `
-  <div class="chain">
-    <div class="chain__row">
-      <span class="chain__label">
-        Building perimeter
-        ${overridden ? '<span class="tag">your figure</span>' : ''}
-      </span>
-      <span class="chain__value">
-        <input type="number" class="chain__input" id="perimeter-input"
-               inputmode="numeric" min="1" max="20000" step="1"
-               value="${overridden ? state.perimeterOverride : Math.round(m.perimeterFt)}"
-               aria-label="Building perimeter in feet"> ft
-        ${overridden ? `<button type="button" class="linkish" id="clear-perimeter">reset</button>` : ''}
-      </span>
-    </div>
-    ${m.sides?.length ? `
-    <div class="chain__row">
-      <span class="chain__label">Walls with gutter</span>
-      <span class="chain__value">${chain.sideCount} of ${m.sides.length}</span>
-    </div>` : ''}
-    <div class="chain__row">
-      <span class="chain__label">
-        Roof type
-        ${chain.roofFactorApplies ? '' : '<span class="tag">not applied</span>'}
-      </span>
-      <span class="chain__value">
-        ${esc(chain.roofLabel)} &times; ${chain.roofFactor}
-      </span>
-    </div>
-    <div class="chain__row chain__row--total">
-      <span class="chain__label">Gutter run</span>
-      <span class="chain__value">${Math.round(chain.gutterLF)} ft</span>
-    </div>
-  </div>`;
-}
-
 /**
  * The measurement, and the confirm step that makes it trustworthy.
  *
@@ -441,8 +405,6 @@ export function renderMeasurement(state, chain) {
   const m = state.measurement;
   if (!m?.ok) return '';
 
-  const alts = m.alternatives ?? [];
-
   return `
   <div class="measure" id="measurement">
     <h3 class="measure__title">${m.method === 'sqft'
@@ -469,19 +431,6 @@ export function renderMeasurement(state, chain) {
         ${esc(m.confidence)}
       </span>
     </div>` : ''}
-
-    ${alts.length ? (m.selection === 'customer-chosen' ? `
-      <div class="notice notice--ok" style="margin-top:12px">
-        <strong>Using the building you picked.</strong>
-        Tap another outline to change it again.
-      </div>` : `
-      <div class="notice" style="margin-top:12px">
-        <strong>${alts.length + 1} buildings sit close to this address.</strong>
-        The address pin landed about ${Math.round(m.chosenDistanceFt)} ft from the
-        one we highlighted. Tap a different outline on the map if we picked wrong.
-      </div>`) : ''}
-
-    ${renderChain(state, chain, m)}
 
     ${renderSides(state, m)}
 
@@ -583,7 +532,7 @@ export function renderForm(config, state, measurementHtml = '') {
         </p>` : ''}
     </div>
 
-    <fieldset class="fieldset">
+    <fieldset class="fieldset" id="style-step">
       <legend>Number of stories</legend>
       ${radioGroup('stories', [
         { value: 1, label: '1 story' },
@@ -788,6 +737,63 @@ export function renderResult(config, state) {
 }
 
 /**
+ * The progress bar. Four steps, each ticked off by something the customer
+ * actually did, so the bar only ever moves because of them. The gutter style
+ * questions come pre-answered, so that step counts once they have touched one
+ * (or carried on to the estimate, which accepts the defaults).
+ */
+export const PROGRESS_STEPS = [
+  { key: 'address', label: 'Address', target: 'addressLine' },
+  { key: 'measure', label: 'Measure', target: 'measuredLF' },
+  { key: 'style', label: 'Gutter style', target: 'style-step' },
+  { key: 'estimate', label: 'Your estimate', target: 'contact-block' },
+];
+
+export function progressSteps(state) {
+  const measured = Number.isFinite(state.measuredLF) && state.measuredLF > 0;
+  const done = {
+    address: addressIsUsable(state),
+    measure: measured,
+    style: measured && (state.styleTouched || state.estimateSaved),
+    estimate: !!state.estimateSaved,
+  };
+  const firstOpen = PROGRESS_STEPS.findIndex((s) => !done[s.key]);
+  return PROGRESS_STEPS.map((s, i) => ({
+    ...s, done: done[s.key], current: i === firstOpen,
+  }));
+}
+
+export function renderProgress(state) {
+  const steps = progressSteps(state);
+  const count = steps.filter((s) => s.done).length;
+  const pct = Math.round((count / steps.length) * 100);
+  return `
+  <div class="wrap progress__inner">
+    <div class="progress__track" role="progressbar" aria-label="Estimate progress"
+         aria-valuemin="0" aria-valuemax="${steps.length}" aria-valuenow="${count}">
+      <div class="progress__fill" style="width:${pct}%"></div>
+    </div>
+    <ol class="progress__steps">
+      ${steps.map((s, i) => `
+      <li class="progress__step ${s.done ? 'is-done' : ''} ${s.current ? 'is-current' : ''}">
+        <button type="button" data-target="${s.target}"
+                ${s.current ? 'aria-current="step"' : ''}>
+          <span class="progress__dot" aria-hidden="true">${s.done ? '&#10003;' : i + 1}</span>
+          <span class="progress__label">${esc(s.label)}</span>
+        </button>
+      </li>`).join('')}
+    </ol>
+  </div>`;
+}
+
+/** The live "you qualify" line under the contact fields. */
+export function warrantyStatus(contact) {
+  return qualifiesForWarranty(contact)
+    ? '&#10003; You qualify for the free 10-year warranty. It will be on your estimate.'
+    : '';
+}
+
+/**
  * Optional contact details, asked for at the moment the customer wants the
  * PDF - the point where a name on the document is worth something to them.
  * Nothing here is required; the download works with every box empty.
@@ -808,8 +814,8 @@ export function renderContactFields(state) {
         Add your details to the estimate <span class="sub">&mdash; optional</span>
       </p>
       <p class="hint" style="margin:0 0 12px">
-        We will put your name on the PDF and can follow up with any questions.
-        We never share your details.
+        Add your name and a phone or email to qualify for a
+        <strong>free 10-year warranty</strong> on your gutters when you go with us.
       </p>
       <div class="field">
         <label for="contact-name">Name</label>
@@ -831,6 +837,9 @@ export function renderContactFields(state) {
           ${err('email')}
         </div>
       </div>
+      <p class="warranty-status" id="warranty-status" aria-live="polite">
+        ${warrantyStatus(c)}
+      </p>
       <div class="hp" aria-hidden="true">
         <label for="contact-website">Leave this empty</label>
         <input type="text" id="contact-website" tabindex="-1" autocomplete="off">

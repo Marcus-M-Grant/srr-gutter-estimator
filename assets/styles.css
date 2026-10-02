@@ -103,6 +103,75 @@ a { color: var(--blue); }
   min-height: 68px;
 }
 .logo { display: block; height: 38px; width: auto; }
+
+/* ---------- progress bar, riding along in the sticky header ---------- */
+.progress { border-top: 1px solid var(--line); }
+.progress[hidden] { display: none; }
+.site-header .progress__inner {
+  /* Not the header's logo/phone flex row. */
+  display: block;
+  min-height: 0;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+.progress__track {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--line);
+  overflow: hidden;
+}
+.progress__fill {
+  height: 100%;
+  background: var(--orange);
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+.progress__steps {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+.progress__step button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 2px 0;
+  background: none;
+  border: 0;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--ink-faint);
+  cursor: pointer;
+  line-height: 1.15;
+}
+.progress__dot {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line-strong);
+  font-size: 0.66rem;
+}
+.progress__step.is-done button { color: var(--blue); }
+.progress__step.is-done .progress__dot {
+  background: var(--blue); border-color: var(--blue); color: #fff;
+}
+.progress__step.is-current button { color: var(--blue-deep); }
+.progress__step.is-current .progress__dot {
+  border-color: var(--orange); color: var(--orange-dark);
+}
+/* On a phone only the step you are on keeps its words. */
+@media (max-width: 479px) {
+  .progress__step:not(.is-current) .progress__label { display: none; }
+}
+
 .header-phone {
   font-family: var(--font-head);
   font-weight: 900;
@@ -544,6 +613,8 @@ input:focus, select:focus, button:focus-visible {
 }
 .field__error { margin: 6px 0 0; font-size: 0.82rem; font-weight: 600; color: var(--err-line); }
 .field input[aria-invalid="true"] { border-color: var(--err-line); }
+.warranty-status { margin: 0 0 12px; font-size: 0.85rem; font-weight: 700; color: var(--ok-ink); }
+.warranty-status:empty { display: none; }
 /* Honeypot: off screen rather than display:none, which some bots skip. */
 .hp { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
 
