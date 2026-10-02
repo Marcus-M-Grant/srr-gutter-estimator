@@ -14,7 +14,11 @@
  * Add ?dry=1 to get back the email that WOULD be sent, without sending it.
  */
 
-const RECIPIENT = 'marcus@specialistroofing.com';
+// Both on the To line, so each can see the other has the lead.
+const RECIPIENTS = [
+    'marcus@specialistroofing.com',
+    'scheduling@specialistroofing.com',
+];
 // Must be an address on this hosting account's own domain, or receiving mail
 // servers treat the message as spoofed and spam-folder it.
 const SENDER = 'estimates@srrgutters.com';
@@ -125,11 +129,11 @@ if ($emailValid) {
 }
 
 if ($dry) {
-    reply(200, ['ok' => true, 'dry' => true, 'to' => RECIPIENT,
+    reply(200, ['ok' => true, 'dry' => true, 'to' => RECIPIENTS,
         'subject' => $subject, 'headers' => $headers, 'body' => $body]);
 }
 
-$sent = mail(RECIPIENT, '=?UTF-8?B?' . base64_encode($subject) . '?=', $body,
+$sent = mail(implode(', ', RECIPIENTS), '=?UTF-8?B?' . base64_encode($subject) . '?=', $body,
     implode("\r\n", $headers), '-f' . SENDER);
 
 reply($sent ? 200 : 500, ['ok' => (bool)$sent]);

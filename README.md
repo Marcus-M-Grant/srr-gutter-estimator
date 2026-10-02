@@ -141,7 +141,7 @@ entirely.
 Above the download buttons the customer can optionally add a name, phone and
 email. Whatever they give is printed on the estimate. Every download (PDF or
 clipboard) also posts to `api/estimate-notify.php` on srrgutters.com, which
-emails marcus@specialistroofing.com with the contact details, address and the
+emails marcus@ and scheduling@specialistroofing.com with the contact details, address and the
 estimate - including when the contact fields were left blank.
 
 This is the one piece of server code in the project, and it is deliberately
