@@ -27,6 +27,9 @@ const ALLOWED_ORIGINS = [
 ];
 const MAX_PER_HOUR = 20;
 
+// HostGator's servers run on Central time; SRR is in Southern California.
+date_default_timezone_set('America/Los_Angeles');
+
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
