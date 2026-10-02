@@ -58,3 +58,10 @@ export const NETWORK_TIMEOUT_MS = 15000;
 export const USER_AGENT =
   'SRR-Gutter-Estimator/0.1 (+https://srrgutters.com)';
 export const OSM_ATTRIBUTION = 'Building outlines &copy; OpenStreetMap contributors';
+
+// --- Lead notification -----------------------------------------------------
+// Our own PHP script on the HostGator account (api/estimate-notify.php), which
+// emails SRR when a customer downloads an estimate. Absolute on purpose: the
+// GitHub Pages copy has no PHP, so it posts here too. Free, keyless, no
+// third-party form service.
+export const NOTIFY_ENDPOINT = 'https://srrgutters.com/api/estimate-notify.php';

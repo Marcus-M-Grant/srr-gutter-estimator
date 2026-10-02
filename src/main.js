@@ -15,6 +15,7 @@ import {
   polygonPerimeterFt, countVertices, sideLengthsFt, measurementFromTrace,
 } from './geo.js';
 import { renderBuildingMap, renderTraceMap } from './map.js';
+import { buildLead, sendLead, validateContact, cleanContact } from './notify.js';
 import {
   initialState, renderForm, renderResult, renderMeasurement, readForm, esc,
   ROOF_TYPES, fullAddress, addressIsUsable, traceReadout,
@@ -373,8 +374,9 @@ async function init() {
   function currentSow() {
     const result = estimate(config, estimatorInputs());
     const date = new Date();
+    const customer = cleanContact(state.contact);
     return {
-      text: generateSow(config, result, { address: fullAddress(state), date }),
+      text: generateSow(config, result, { address: fullAddress(state), date, customer }),
       filename: sowFilename(fullAddress(state), date),
       result,
     };
@@ -404,17 +406,57 @@ async function init() {
    * version if jsPDF cannot be loaded. A blocked CDN should cost the customer
    * a nicer document, not the document.
    */
+  /**
+   * Check the optional contact details before a document is produced. Blank
+   * is fine; a mistyped phone or email is caught here rather than printed.
+   */
+  function contactIsValid() {
+    const { ok, errors } = validateContact(state.contact);
+    const changed = JSON.stringify(errors) !== JSON.stringify(state.contactErrors ?? {});
+    state.contactErrors = errors;
+    if (changed) updateResult();
+    if (!ok) {
+      setSowStatus('Please fix the details above, or clear them to download without.');
+      $(errors.phone ? '#contact-phone' : '#contact-email')?.focus();
+    }
+    return ok;
+  }
+
+  /**
+   * Email SRR about this estimate. Fire and forget: it never delays or blocks
+   * the customer's document. The same estimate downloaded twice in a row is
+   * one lead, not two emails.
+   */
+  let lastLeadKey = '';
+  function notifyLead(result) {
+    const lead = buildLead({
+      contact: state.contact,
+      address: fullAddress(state),
+      result,
+      state,
+      honeypot: $('#contact-website')?.value ?? '',
+      page: location.origin + location.pathname,
+    });
+    const key = JSON.stringify(lead);
+    if (key === lastLeadKey) return;
+    lastLeadKey = key;
+    sendLead(lead);
+  }
+
   async function downloadSow() {
     const btn = $('#download-sow');
+    if (!contactIsValid()) return;
     try {
       const { text, filename, result } = currentSow();
       const date = new Date();
       const address = fullAddress(state);
+      const customer = cleanContact(state.contact);
 
       if (btn) { btn.disabled = true; btn.textContent = 'Building PDF…'; }
       setSowStatus('');
+      notifyLead(result);
 
-      const blob = await generateSowPdf(config, result, { address, date });
+      const blob = await generateSowPdf(config, result, { address, date, customer });
       if (blob) {
         const name = pdfFilename(address, date);
         saveBlob(blob, name);
@@ -431,9 +473,12 @@ async function init() {
   }
 
   async function copySow() {
+    if (!contactIsValid()) return;
     let text;
     try {
-      ({ text } = currentSow());
+      let result;
+      ({ text, result } = currentSow());
+      notifyLead(result);
     } catch (err) {
       setSowStatus(`Could not build the document: ${err.message}`);
       return;
@@ -463,6 +508,11 @@ async function init() {
     $('#result').innerHTML = renderResult(config, estimatorInputs());
     $('#download-sow')?.addEventListener('click', downloadSow);
     $('#copy-sow')?.addEventListener('click', copySow);
+    for (const key of ['name', 'phone', 'email']) {
+      $(`#contact-${key}`)?.addEventListener('input', (e) => {
+        state.contact = { ...state.contact, [key]: e.target.value };
+      });
+    }
     onEstimateComplete();
   }
 

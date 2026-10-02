@@ -166,6 +166,8 @@ export function initialState(config) {
     lookupPoint: null,        // where the address geocoded, even with no outline
     traceCorners: [],         // corners the customer tapped (Method A2)
     tracePerimeterFt: 0,
+    contact: { name: '', phone: '', email: '' },   // optional, for the estimate
+    contactErrors: {},
     buildingConfirmed: false,
     roofType: 'unknown',
     perimeterOverride: null,  // a perimeter the customer typed
@@ -776,12 +778,64 @@ export function renderResult(config, state) {
       A PDF with the full line-item breakdown, scope of work and exclusions
       &mdash; ready to print, email or attach to a contract.
     </p>
+    ${renderContactFields(state)}
     <div class="actions">
       <button type="button" class="btn btn--primary" id="download-sow">Download PDF</button>
       <button type="button" class="btn btn--secondary" id="copy-sow">Copy to clipboard</button>
     </div>
     <p class="hint" id="sow-status" role="status" aria-live="polite" style="margin:10px 0 0"></p>
   </section>`;
+}
+
+/**
+ * Optional contact details, asked for at the moment the customer wants the
+ * PDF - the point where a name on the document is worth something to them.
+ * Nothing here is required; the download works with every box empty.
+ *
+ * These inputs sit OUTSIDE the estimate form, so typing in them never
+ * re-prices or re-renders anything. Their values live in state.contact so a
+ * re-render from the form above does not wipe what was typed.
+ */
+export function renderContactFields(state) {
+  const c = state.contact ?? {};
+  const e = state.contactErrors ?? {};
+  const err = (k) => (e[k]
+    ? `<p class="field__error" id="contact-${k}-error">${esc(e[k])}</p>` : '');
+  const desc = (k) => (e[k] ? ` aria-describedby="contact-${k}-error" aria-invalid="true"` : '');
+  return `
+    <div class="contact" id="contact-block">
+      <p class="contact__head">
+        Add your details to the estimate <span class="sub">&mdash; optional</span>
+      </p>
+      <p class="hint" style="margin:0 0 12px">
+        We will put your name on the PDF and can follow up with any questions.
+        We never share your details.
+      </p>
+      <div class="field">
+        <label for="contact-name">Name</label>
+        <input type="text" id="contact-name" autocomplete="name" maxlength="100"
+               value="${esc(c.name ?? '')}">
+      </div>
+      <div class="two-up">
+        <div class="field">
+          <label for="contact-phone">Phone</label>
+          <input type="tel" id="contact-phone" autocomplete="tel" inputmode="tel"
+                 maxlength="40" placeholder="(626) 555-0100"
+                 value="${esc(c.phone ?? '')}"${desc('phone')}>
+          ${err('phone')}
+        </div>
+        <div class="field">
+          <label for="contact-email">Email</label>
+          <input type="email" id="contact-email" autocomplete="email" maxlength="200"
+                 value="${esc(c.email ?? '')}"${desc('email')}>
+          ${err('email')}
+        </div>
+      </div>
+      <div class="hp" aria-hidden="true">
+        <label for="contact-website">Leave this empty</label>
+        <input type="text" id="contact-website" tabindex="-1" autocomplete="off">
+      </div>
+    </div>`;
 }
 
 // ---------------------------------------------------------------------------

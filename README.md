@@ -136,6 +136,24 @@ publicly by GitHub Pages, so anything committed there is world-readable. The
 estimator reads `Price` only, so nothing is lost by dropping cost data
 entirely.
 
+## Lead capture and email notification
+
+Above the download buttons the customer can optionally add a name, phone and
+email. Whatever they give is printed on the estimate. Every download (PDF or
+clipboard) also posts to `api/estimate-notify.php` on srrgutters.com, which
+emails marcus@specialistroofing.com with the contact details, address and the
+estimate - including when the contact fields were left blank.
+
+This is the one piece of server code in the project, and it is deliberately
+small: PHP's own `mail()` on the HostGator account, so there is still no third
+party service, key or billing account. The GitHub Pages copy posts to the same
+script. It never sends from localhost (add `?notify=1` to test from a dev
+server). `POST ...?dry=1` returns the email it would send without sending it.
+
+The warranty line on every estimate comes from `warrantyText()` in `src/sow.js`.
+Add a `warranty_text` row to the Rules tab to reword it without a deploy
+(`{company}` is replaced with the company name).
+
 ## Deploying to srrgutters.com (HostGator)
 
 ```bash

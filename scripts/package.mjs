@@ -26,6 +26,7 @@ const INCLUDE = [
   'assets',
   'src',
   'data',           // the offline fallback snapshot
+  'api',            // the lead-notification PHP script (HostGator runs PHP)
 ];
 
 /**

@@ -179,7 +179,7 @@ main { padding: 22px 0 10px; }
 }
 .field .sub { font-weight: 500; text-transform: none; letter-spacing: 0; color: var(--ink-soft); font-size: 0.8rem; }
 
-input[type="number"], input[type="text"], select {
+input[type="number"], input[type="text"], input[type="tel"], input[type="email"], select {
   width: 100%;
   font-family: var(--font-body);
   font-size: 1rem;
@@ -521,6 +521,31 @@ input:focus, select:focus, button:focus-visible {
   letter-spacing: 0.05em;
   color: var(--blue-deep);
 }
+
+/* ---------- optional contact details, above the download ---------- */
+.contact {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px 14px 2px;
+  margin: 0 0 16px;
+  background: #fbfcfe;
+}
+.contact__head {
+  margin: 0 0 4px;
+  font-weight: 800;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--blue-deep);
+}
+.contact__head .sub {
+  font-weight: 500; text-transform: none; letter-spacing: 0;
+  color: var(--ink-soft);
+}
+.field__error { margin: 6px 0 0; font-size: 0.82rem; font-weight: 600; color: var(--err-line); }
+.field input[aria-invalid="true"] { border-color: var(--err-line); }
+/* Honeypot: off screen rather than display:none, which some bots skip. */
+.hp { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
 
 /* ---------- gutter profile picker ---------- */
 .profiles { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }

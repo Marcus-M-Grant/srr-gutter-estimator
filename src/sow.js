@@ -46,6 +46,37 @@ function qtyText(n) {
   return Number.isInteger(n) ? String(n) : String(Number(n.toFixed(2)));
 }
 
+/**
+ * The warranty line printed on every estimate. The Rules tab can replace it
+ * with a `warranty_text` row, so the wording can change without a deploy; the
+ * default deliberately says no more than "10-year warranty" and leaves the
+ * terms to the written contract.
+ */
+export const DEFAULT_WARRANTY =
+  'All gutter installations by {company} are backed by our 10-year warranty. '
+  + 'Full warranty terms are provided with your written contract.';
+
+export function warrantyText(rules = {}) {
+  const company = rules.company_name || 'Specialist Roofing & Repair';
+  const custom = String(rules.warranty_text ?? '').trim();
+  const text = custom && custom.toUpperCase() !== 'TBD' ? custom : DEFAULT_WARRANTY;
+  return text.replace(/\{company\}/g, company);
+}
+
+/**
+ * The customer's own details, as [label, value] rows, skipping anything they
+ * left blank. Every field is optional - an estimate with none of them is
+ * still a complete estimate.
+ */
+export function customerRows(customer = {}) {
+  const clean = (v) => String(v ?? '').trim();
+  return [
+    ['Prepared for', clean(customer.name)],
+    ['Phone', clean(customer.phone)],
+    ['Email', clean(customer.email)],
+  ].filter(([, v]) => v);
+}
+
 export function formatDate(date) {
   return `${MONTHS[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
 }
@@ -210,7 +241,7 @@ const EXCLUSIONS = [
  */
 export function generateSow(config, result, meta) {
   const { rules } = config;
-  const { address, date } = meta;
+  const { address, date, customer } = meta;
   const i = result.inputs;
   const L = [];
 
@@ -238,6 +269,7 @@ export function generateSow(config, result, meta) {
 
   // labelled() rather than plain padding, so a long address wraps under the
   // label instead of running off the 72 column page.
+  for (const [k, v] of customerRows(customer)) L.push(labelled(k, v, 20));
   L.push(labelled('Date', formatDate(date), 20));
   L.push(labelled('Property address', address || '(not supplied)', 20));
   L.push(labelled('Estimate valid',
@@ -338,6 +370,13 @@ export function generateSow(config, result, meta) {
   );
 
   for (const [k, v] of assumptions) L.push(labelled(k, v));
+  L.push('');
+
+  // ---- warranty ----------------------------------------------------------
+  L.push(rule());
+  L.push('WARRANTY');
+  L.push(rule());
+  L.push(wrap(warrantyText(rules)));
   L.push('');
 
   // ---- exclusions --------------------------------------------------------
