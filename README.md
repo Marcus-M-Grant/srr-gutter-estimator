@@ -15,7 +15,9 @@ an address they see their building outlined on satellite imagery, correct it if
 we picked the wrong one, switch off walls that have no gutter, or trace their
 own roof when OpenStreetMap has no outline (or fall back to floor area). Roof
 type is not asked; it uses the `gutter_factor_unknown` default. They get an
-itemized price and a downloadable PDF statement of work, with a progress bar
+itemized price and a downloadable PDF statement of work (with the gutter
+color they picked from the 20-color aluminum card in `src/colors.js`, which also
+appears in the lead email), with a progress bar
 (header on narrow screens, a rail down the left on wide ones) along the way.
 
 ## Hard constraints this is built under

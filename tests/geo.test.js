@@ -290,8 +290,8 @@ test('parseOverpass tolerates junk rather than throwing', () => {
 
 test('addresses normalize so cache keys do not miss on spacing or case', () => {
   assert.equal(
-    normalizeAddress('  5031   Fair Avenue, North HOLLYWOOD, CA  '),
-    '5031 fair avenue, north hollywood, ca');
+    normalizeAddress('  1061   N Victory Place, BURBANK, CA  '),
+    '1061 n victory place, burbank, ca');
   assert.equal(normalizeAddress(null), '');
 });
 
@@ -359,7 +359,7 @@ test('Method A measures the footprint and applies the roof factor', async () => 
   const deps = stubDeps({ geocode: point, overpass: [building] });
 
   const r = await resolveGutterLF(
-    { address: '5031 Fair Avenue, North Hollywood, CA 91601', roofType: 'gable' },
+    { address: '1061 N Victory Place, Burbank, CA 91502', roofType: 'gable' },
     { rules: RULES, deps });
 
   assert.equal(r.ok, true);
@@ -380,7 +380,7 @@ test('a manual figure always wins, and is labelled customer supplied', async () 
   const deps = stubDeps({ geocode: polygonCentroid(building), overpass: [building] });
 
   const r = await resolveGutterLF(
-    { address: '5031 Fair Avenue', roofType: 'gable', totalSqFt: 2400, manualLF: 193 },
+    { address: '1061 N Victory Place', roofType: 'gable', totalSqFt: 2400, manualLF: 193 },
     { rules: RULES, deps });
 
   assert.equal(r.method, 'manual');
@@ -449,13 +449,13 @@ test('results are cached by normalized address, so a reload costs no requests',
       },
     };
 
-    const first = await measureAddress('5031 Fair Avenue', { rules: RULES, deps });
+    const first = await measureAddress('1061 N Victory Place', { rules: RULES, deps });
     assert.equal(first.ok, true);
     const callsAfterFirst = calls;
     assert.ok(callsAfterFirst >= 2, 'first lookup hits geocoder and Overpass');
 
     // Different casing and spacing must still hit the cache.
-    const second = await measureAddress('  5031   FAIR avenue ', { rules: RULES, deps });
+    const second = await measureAddress('  1061   N VICTORY place ', { rules: RULES, deps });
     assert.equal(second.ok, true);
     assert.equal(second.cached, true);
     assert.equal(calls, callsAfterFirst, 'a cached address makes no new requests');

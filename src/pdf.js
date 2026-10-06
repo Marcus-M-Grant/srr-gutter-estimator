@@ -106,7 +106,7 @@ export function pdfFilename(address, date) {
  */
 export function sowPdfModel(config, result, meta) {
   const { rules } = config;
-  const { address, date, customer } = meta;
+  const { address, date, customer, color } = meta;
   const i = result.inputs;
   const q = result.quantities;
 
@@ -130,11 +130,13 @@ export function sowPdfModel(config, result, meta) {
       ...customerRows(customer),
       ['Date', formatDate(date)],
       ['Property address', address || '(not supplied)'],
+      ...(color ? [['Gutter color', color]] : []),
       ['Valid until', `${formatDate(addDays(date, validDays))}  (${validDays} days)`],
     ],
     scope: [
       `Furnish and install ${q.billableLF} linear feet of ${i.material.toLowerCase()} `
-        + `${i.profile} rain gutter, including ${q.downspoutCount} downspouts totalling `
+        + `${i.profile} rain gutter${color ? ` in ${color}` : ''}, including `
+        + `${q.downspoutCount} downspouts totalling `
         + `approximately ${q.downspoutLF} linear feet over ${i.stories} `
         + `${i.stories === 1 ? 'story' : 'stories'}.`,
       q.guardLF > 0
@@ -191,7 +193,7 @@ function disclaimerText(company, validDays) {
  *
  * @param {object} config  { rules }
  * @param {object} result  an estimate() result
- * @param {object} meta    { address, date, customer? }
+ * @param {object} meta    { address, date, customer?, color? }
  * @returns {Promise<Blob|null>} null when jsPDF is unavailable
  */
 export async function generateSowPdf(config, result, meta) {

@@ -11,6 +11,7 @@
  */
 
 import { NOTIFY_ENDPOINT } from './providers.js';
+import { chosenColor } from './colors.js';
 
 const LIMITS = { name: 100, phone: 40, email: 200, address: 300 };
 
@@ -90,6 +91,7 @@ export function buildLead({ contact, address, result, state, honeypot = '', page
         + `${state?.stories ?? 1} ${state?.stories === 1 ? 'story' : 'stories'}`
         + `${state?.guards ? ', with gutter guards' : ''}`
       : '',
+    color: chosenColor(state) ?? '',
     warranty: qualifiesForWarranty(contact) ? 'yes' : 'no',
     page: clip(page, 200),
     website: honeypot,   // the honeypot travels under a boring name

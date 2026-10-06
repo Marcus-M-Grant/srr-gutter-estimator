@@ -76,6 +76,7 @@ $lead = [
     'total'   => field('total', 40),
     'range'   => field('range', 80),
     'job'     => field('job', 300),
+    'color'   => field('color', 40),
     'warranty' => field('warranty', 3),
     'page'    => field('page', 200),
 ];
@@ -111,6 +112,7 @@ $body = implode("\n", [
     '',
     'Estimate: ' . $lead['total'] . ($lead['range'] !== '' ? '  (range ' . $lead['range'] . ')' : ''),
     'Job:      ' . $or($lead['job']),
+    'Color:    ' . ($lead['color'] !== '' ? $lead['color'] : '(not chosen)'),
     'Warranty: ' . ($lead['warranty'] === 'yes'
         ? 'Qualifies for the free 10-year warranty'
         : 'Did not qualify (no name plus phone or email)'),

@@ -25,7 +25,7 @@ const config = buildConfig(
 );
 
 const DATE = new Date(2026, 8, 21);
-const ADDRESS = '5031 Fair Avenue, North Hollywood, CA 91601';
+const ADDRESS = '1061 N Victory Place, Burbank, CA 91502';
 
 const worked = (o = {}) => estimate(config, {
   measuredLF: 334, stories: 2, material: 'Aluminum', profile: 'K Style 5"', ...o,
@@ -126,6 +126,6 @@ test('no cost or margin data reaches the document', () => {
 
 test('the filename is a .pdf named for the address and date', () => {
   assert.equal(pdfFilename(ADDRESS, DATE),
-    'SRR-Gutter-Estimate-5031-fair-avenue-north-hollywood-ca-91601-20260921.pdf');
+    'SRR-Gutter-Estimate-1061-n-victory-place-burbank-ca-91502-20260921.pdf');
   assert.equal(pdfFilename('', DATE), 'SRR-Gutter-Estimate-estimate-20260921.pdf');
 });

@@ -161,3 +161,46 @@ test('the contact fields say optional, keep typed values, and show errors', () =
   assert.match(html, /needs the area code/);
   assert.match(html, /id="contact-website" tabindex="-1"/);
 });
+
+// ---- gutter color ----------------------------------------------------------
+
+import { GUTTER_COLORS, chosenColor } from '../src/colors.js';
+import { renderColorPicker } from '../src/ui.js';
+
+test('the color card has all 20 colors, each with a swatch', () => {
+  assert.equal(GUTTER_COLORS.length, 20);
+  assert.equal(new Set(GUTTER_COLORS.map((c) => c.name)).size, 20);
+  for (const c of GUTTER_COLORS) assert.match(c.hex, /^#[0-9A-F]{6}$/);
+  const html = renderColorPicker({ color: 'Musket Brown' });
+  assert.equal((html.match(/name="color"/g) ?? []).length, 20);
+  assert.match(html, /value="Musket Brown"\s+checked/);
+});
+
+test('only a real color on aluminum counts as chosen', () => {
+  assert.equal(chosenColor({ material: 'Aluminum', color: 'Musket Brown' }), 'Musket Brown');
+  assert.equal(chosenColor({ material: 'Aluminum', color: null }), null);
+  assert.equal(chosenColor({ material: 'Aluminum', color: 'Hot Pink' }), null);
+  assert.equal(chosenColor({ material: 'Copper', color: 'Musket Brown' }), null);
+});
+
+test('the color goes on the estimate, the scope and the lead email', () => {
+  const meta = { address: ADDRESS, date: DATE, color: 'Musket Brown' };
+  const pdf = sowPdfModel(config, result(), meta);
+  assert.equal(Object.fromEntries(pdf.facts)['Gutter color'], 'Musket Brown');
+  assert.match(pdf.scope, /K Style 5" rain gutter in Musket Brown, including/);
+
+  const text = generateSow(config, result(), meta);
+  assert.match(text, /Gutter color:\s+Musket Brown/);
+  assert.match(text.replace(/\s+/g, ' '), /rain gutter in Musket Brown, including/);
+
+  const lead = buildLead({ contact: {}, address: ADDRESS, result: result(),
+    state: { ...STATE, color: 'Musket Brown' } });
+  assert.equal(lead.color, 'Musket Brown');
+});
+
+test('with no color picked, nothing about color is printed', () => {
+  const pdf = sowPdfModel(config, result(), { address: ADDRESS, date: DATE });
+  assert.equal(Object.fromEntries(pdf.facts)['Gutter color'], undefined);
+  assert.doesNotMatch(pdf.scope, / in [A-Z]/);
+  assert.equal(buildLead({ contact: {}, address: '', result: result(), state: STATE }).color, '');
+});

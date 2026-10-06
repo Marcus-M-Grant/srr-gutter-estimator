@@ -13,6 +13,7 @@ import {
   estimate, availableMaterials, availableProfiles, guardsAvailable,
 } from './estimator.js';
 import { qualifiesForWarranty } from './notify.js';
+import { GUTTER_COLORS, colorsApply, chosenColor } from './colors.js';
 
 export const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -169,6 +170,7 @@ export function initialState(config) {
     tracePerimeterFt: 0,
     contact: { name: '', phone: '', email: '' },   // optional, for the estimate
     contactErrors: {},
+    color: null,              // a GUTTER_COLORS name; null until they pick
     styleTouched: false,      // progress bar: they chose stories, shape, etc.
     estimateSaved: false,     // progress bar: they downloaded or copied it
     buildingConfirmed: false,
@@ -385,16 +387,15 @@ export function renderMeasurement(state, chain) {
     <h3 class="measure__title">${m.method === 'sqft'
       ? 'Estimated from the floor area'
       : m.method === 'traced' ? 'Your roof outline' : 'Is this your building?'}</h3>
+    ${m.method === 'sqft' ? `
     <p class="hint">
-      ${m.method === 'sqft'
-        ? `Worked out from ${Math.round(m.footprintSqFt)} sq ft of footprint. This is a
-           rough estimate, not a measurement of your building.`
-        : m.method === 'traced'
-        ? `Measured from the corners you tapped. Switch off any wall without gutter
-           below &mdash; a Specialist Roofing estimator confirms exact footage on site.`
-        : `We pulled an approximate outline of the building at that address. A
-           Specialist Roofing estimator confirms exact footage on site.`}
-    </p>
+      Worked out from ${Math.round(m.footprintSqFt)} sq ft of footprint. This is a
+      rough estimate, not a measurement of your building.
+    </p>` : m.method === 'traced' ? `
+    <p class="hint">
+      Measured from the corners you tapped. Switch off any wall without gutter
+      below &mdash; a Specialist Roofing estimator confirms exact footage on site.
+    </p>` : ''}
 
     ${m.coords ? `
     <div class="map-wrap">
@@ -442,28 +443,26 @@ export function renderForm(config, state, measurementHtml = '') {
       <div class="start-split__col">
         <p class="start-split__head">Measure from my address</p>
         <div class="field">
-          <label for="addressLine">Street address</label>
-          <input type="text" id="addressLine" name="addressLine"
-                 autocomplete="address-line1" placeholder="5031 Fair Avenue"
+          <input type="text" id="addressLine" name="addressLine" aria-label="Street address"
+                 autocomplete="address-line1" placeholder="1061 N Victory Pl"
                  value="${esc(state.addressLine ?? '')}">
         </div>
 
         <div class="addr-grid">
           <div class="field">
-            <label for="city">City</label>
-            <input type="text" id="city" name="city" autocomplete="address-level2"
-                   placeholder="North Hollywood" value="${esc(state.city ?? '')}">
+            <input type="text" id="city" name="city" aria-label="City"
+                   autocomplete="address-level2" placeholder="Burbank"
+                   value="${esc(state.city ?? '')}">
           </div>
           <div class="field">
-            <label for="stateCode">State</label>
-            <input type="text" id="stateCode" name="stateCode" autocomplete="address-level1"
-                   maxlength="2" placeholder="CA" value="${esc(state.stateCode ?? '')}">
+            <input type="text" id="stateCode" name="stateCode" aria-label="State"
+                   autocomplete="address-level1" maxlength="2" placeholder="CA"
+                   value="${esc(state.stateCode ?? '')}">
           </div>
           <div class="field">
-            <label for="zip">ZIP</label>
-            <input type="text" id="zip" name="zip" autocomplete="postal-code"
-                   inputmode="numeric" maxlength="10" placeholder="91601"
-                   value="${esc(state.zip ?? '')}">
+            <input type="text" id="zip" name="zip" aria-label="ZIP code"
+                   autocomplete="postal-code" inputmode="numeric" maxlength="10"
+                   placeholder="91502" value="${esc(state.zip ?? '')}">
           </div>
         </div>
 
@@ -478,13 +477,10 @@ export function renderForm(config, state, measurementHtml = '') {
       <div class="start-split__or" aria-hidden="true"><span>or</span></div>
 
       <div class="start-split__col">
-        <p class="start-split__head">I know my linear feet</p>
+        <p class="start-split__head">I know my linear feet of gutter</p>
         <div class="field">
-          <label for="measuredLF">
-            Linear feet of gutter
-            <span class="sub">&mdash; total run around the eaves</span>
-          </label>
           <input type="number" id="measuredLF" name="measuredLF" inputmode="numeric"
+                 aria-label="Linear feet of gutter"
                  min="1" max="5000" step="1" placeholder="e.g. 200"
                  value="${state.measuredLF ?? ''}">
           ${state.lfOverridden && state.measurement?.ok ? `
@@ -533,6 +529,8 @@ export function renderForm(config, state, measurementHtml = '') {
       </div>
     </fieldset>
 
+    ${colorsApply(state.material) ? renderColorPicker(state) : ''}
+
     ${(showRuns || showCorners) ? `
     <div class="two-up">
       ${showRuns ? `
@@ -557,6 +555,27 @@ export function renderForm(config, state, measurementHtml = '') {
       </label>
     </div>` : ''}
   </form>`;
+}
+
+/**
+ * Gutter color, as swatches. Optional: nothing is pre-selected, because a
+ * color the customer did not choose should not end up on their estimate.
+ * Price does not depend on it.
+ */
+export function renderColorPicker(state) {
+  return `
+    <fieldset class="fieldset">
+      <legend>Gutter color <span class="sub">&mdash; optional, confirm on a real sample</span></legend>
+      <div class="colors">
+        ${GUTTER_COLORS.map((c) => `
+        <label class="color">
+          <input type="radio" name="color" value="${esc(c.name)}"
+                 ${state.color === c.name ? 'checked' : ''}>
+          <span class="color__chip" style="background:${c.hex}" aria-hidden="true"></span>
+          <span class="color__name">${esc(c.name)}</span>
+        </label>`).join('')}
+      </div>
+    </fieldset>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -676,7 +695,8 @@ export function renderResult(config, state) {
     </p>
     <p class="result__note">
       ${esc(r.quantities.billableLF)} LF of ${esc(state.material.toLowerCase())}
-      ${esc(state.profile)} gutter with ${esc(r.quantities.downspoutCount)} downspouts.
+      ${esc(state.profile)} gutter${chosenColor(state) ? ` in ${esc(chosenColor(state))}` : ''}
+      with ${esc(r.quantities.downspoutCount)} downspouts.
       Estimate valid ${esc(validity)} days, subject to a site visit.
     </p>
   </section>
@@ -880,6 +900,7 @@ export function readForm(form, state) {
     runs: Math.max(1, n('runs', 1)),
     corners: Math.max(0, n('corners', 0)),
     material: form.elements.material?.value ?? state.material,
+    color: form.elements.color?.value || state.color,
     profile: form.elements.profile?.value ?? state.profile,
     guards: form.elements.guards?.checked ?? false,
     lfSource: 'manual',

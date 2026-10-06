@@ -61,7 +61,7 @@ test('config snapshot loads without errors', () => {
   assert.ok(config.pricing.length > 0);
 });
 
-test('1. worked example: 5031 Fair Avenue, 200 LF, 2 storey, aluminium K Style 5"', () => {
+test('1. worked example: 1061 N Victory Place, 200 LF, 2 storey, aluminium K Style 5"', () => {
   const config = loadRealConfig();
   const r = estimate(config, {
     measuredLF: 200,

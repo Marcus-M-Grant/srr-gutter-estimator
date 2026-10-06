@@ -13,9 +13,9 @@ import { fullAddress, addressIsUsable } from '../src/ui.js';
 
 test('the four fields join into one line', () => {
   assert.equal(
-    fullAddress({ addressLine: '5031 Fair Avenue', city: 'North Hollywood',
-                  stateCode: 'CA', zip: '91601' }),
-    '5031 Fair Avenue, North Hollywood, CA 91601');
+    fullAddress({ addressLine: '1061 N Victory Place', city: 'Burbank',
+                  stateCode: 'CA', zip: '91502' }),
+    '1061 N Victory Place, Burbank, CA 91502');
 });
 
 test('state and ZIP share a segment, separated by a space not a comma', () => {
@@ -47,12 +47,12 @@ test('whitespace is trimmed and the state is upper-cased', () => {
 });
 
 test('a lookup needs a street plus either a city or a ZIP', () => {
-  const street = { addressLine: '5031 Fair Avenue' };
-  assert.equal(addressIsUsable({ ...street, city: 'North Hollywood' }), true);
-  assert.equal(addressIsUsable({ ...street, zip: '91601' }), true);
+  const street = { addressLine: '1061 N Victory Place' };
+  assert.equal(addressIsUsable({ ...street, city: 'Burbank' }), true);
+  assert.equal(addressIsUsable({ ...street, zip: '91502' }), true);
   assert.equal(addressIsUsable({ ...street, city: '', zip: '' }), false,
     'a street alone is too vague to geocode');
-  assert.equal(addressIsUsable({ city: 'North Hollywood', zip: '91601' }), false,
+  assert.equal(addressIsUsable({ city: 'Burbank', zip: '91502' }), false,
     'a city alone has no building to measure');
   assert.equal(addressIsUsable({}), false);
   assert.equal(addressIsUsable({ addressLine: '   ', city: 'Burbank' }), false);
@@ -225,4 +225,13 @@ test('the result offers the PDF only - no clipboard button', () => {
   const html = renderResult(cfg, { ...initialState(cfg), measuredLF: 180 });
   assert.match(html, /id="download-sow"/);
   assert.doesNotMatch(html, /copy-sow|clipboard/i);
+});
+
+test('"Is this your building?" carries no explanation paragraph', () => {
+  const html = renderMeasurement({ measurement: {
+    ok: true, method: 'osm', coords: [{ lat: 0, lon: 0 }], sides: [], confidence: 'likely',
+  } }, null);
+  assert.match(html, /Is this your building\?/);
+  assert.doesNotMatch(html, /We pulled an approximate outline/);
+  assert.doesNotMatch(html, /class="hint"/);
 });

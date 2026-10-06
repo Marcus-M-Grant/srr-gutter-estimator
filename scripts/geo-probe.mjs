@@ -35,7 +35,6 @@ const DELAY_MS = 1200;   // Nominatim's policy is 1 req/sec; stay under it
 const SAMPLE = [
   '1061 N Victory Pl, Burbank, CA 91502',
   '275 E Olive Ave, Burbank, CA 91502',
-  '5031 Fair Ave, North Hollywood, CA 91601',
   '200 N Spring St, Los Angeles, CA 90012',
   '111 N Hope St, Los Angeles, CA 90012',
   '613 E Broadway, Glendale, CA 91206',

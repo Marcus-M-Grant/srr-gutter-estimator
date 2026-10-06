@@ -128,7 +128,7 @@ function labelled(label, value, labelWidth = LABEL_W) {
     .join('\n');
 }
 
-/** "5031 Fair Avenue, North Hollywood, CA" -> "5031-fair-avenue-north-hollywood-ca" */
+/** "1061 N Victory Place, Burbank, CA" -> "1061-n-victory-place-burbank-ca" */
 export function slugifyAddress(address) {
   const slug = String(address ?? '')
     .toLowerCase()
@@ -164,14 +164,14 @@ function sourcePhrase(lfSource) {
   }
 }
 
-function scopeParagraph(result, rules) {
+function scopeParagraph(result, rules, color) {
   const i = result.inputs;
   const q = result.quantities;
   const material = i.material.toLowerCase();
 
   const parts = [
     `Furnish and install ${q.billableLF} linear feet of ${material} ` +
-    `${i.profile} rain gutter, including ${q.downspoutCount} downspouts ` +
+    `${i.profile} rain gutter${color ? ` in ${color}` : ''}, including ${q.downspoutCount} downspouts ` +
     `totalling approximately ${q.downspoutLF} linear feet over ` +
     `${i.stories} ${i.stories === 1 ? 'story' : 'stories'}.`,
   ];
@@ -249,7 +249,7 @@ const EXCLUSIONS = [
  */
 export function generateSow(config, result, meta) {
   const { rules } = config;
-  const { address, date, customer } = meta;
+  const { address, date, customer, color } = meta;
   const i = result.inputs;
   const L = [];
 
@@ -280,6 +280,7 @@ export function generateSow(config, result, meta) {
   for (const [k, v] of customerRows(customer)) L.push(labelled(k, v, 20));
   L.push(labelled('Date', formatDate(date), 20));
   L.push(labelled('Property address', address || '(not supplied)', 20));
+  if (color) L.push(labelled('Gutter color', color, 20));
   L.push(labelled('Estimate valid',
     `${validDays} days, through ${formatDate(addDays(date, validDays))}`, 20));
   L.push('');
@@ -288,7 +289,7 @@ export function generateSow(config, result, meta) {
   L.push(rule());
   L.push('SCOPE OF WORK');
   L.push(rule());
-  L.push(wrap(scopeParagraph(result, rules)));
+  L.push(wrap(scopeParagraph(result, rules, color)));
   L.push('');
 
   // ---- line items --------------------------------------------------------

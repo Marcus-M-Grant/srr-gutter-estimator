@@ -16,6 +16,7 @@ import {
 } from './geo.js';
 import { renderBuildingMap, renderTraceMap } from './map.js';
 import { buildLead, sendLead, validateContact, cleanContact } from './notify.js';
+import { chosenColor } from './colors.js';
 import {
   initialState, renderForm, renderResult, renderMeasurement, readForm, esc,
   ROOF_TYPES, fullAddress, addressIsUsable, traceReadout,
@@ -377,7 +378,8 @@ async function init() {
     const date = new Date();
     const customer = cleanContact(state.contact);
     return {
-      text: generateSow(config, result, { address: fullAddress(state), date, customer }),
+      text: generateSow(config, result,
+        { address: fullAddress(state), date, customer, color: chosenColor(state) }),
       filename: sowFilename(fullAddress(state), date),
       result,
     };
@@ -457,7 +459,8 @@ async function init() {
       setSowStatus('');
       notifyLead(result);
 
-      const blob = await generateSowPdf(config, result, { address, date, customer });
+      const blob = await generateSowPdf(config, result,
+        { address, date, customer, color: chosenColor(state) });
       state.estimateSaved = true;
       updateProgress();
       if (blob) {
@@ -587,7 +590,7 @@ async function init() {
       const previousLF = state.measuredLF;
 
       state = readForm(form, state);
-      if (['stories', 'material', 'profile', 'guards', 'runs', 'corners']
+      if (['stories', 'material', 'profile', 'color', 'guards', 'runs', 'corners']
         .includes(e.target?.name)) state.styleTouched = true;
 
       // A hand-typed footage detaches from the measurement and must not be

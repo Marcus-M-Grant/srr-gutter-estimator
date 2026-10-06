@@ -26,7 +26,7 @@ const config = buildConfig(
   'test'
 );
 
-const ADDRESS = '5031 Fair Avenue, North Hollywood, CA 91601';
+const ADDRESS = '1061 N Victory Place, Burbank, CA 91502';
 const DATE = new Date(2026, 8, 19); // 19 September 2026, local time
 
 function worked(overrides = {}) {
@@ -203,7 +203,7 @@ test('no cost or margin data leaks into the document', () => {
 test('filenames follow SRR-Gutter-Estimate-{slug}-{YYYYMMDD}.txt', () => {
   assert.equal(
     sowFilename(ADDRESS, DATE),
-    'SRR-Gutter-Estimate-5031-fair-avenue-north-hollywood-ca-91601-20260919.txt'
+    'SRR-Gutter-Estimate-1061-n-victory-place-burbank-ca-91502-20260919.txt'
   );
   assert.equal(dateStamp(new Date(2026, 0, 5)), '20260105');
   assert.equal(slugifyAddress('  123 Main St. #4, Los Angeles, CA  '),
