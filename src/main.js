@@ -479,6 +479,43 @@ async function init() {
   }
 
   /**
+   * The color panel. A native <dialog>: focus is held inside it, Escape
+   * closes it, and the page behind is inert. Picking a color closes it and
+   * re-renders so the button shows the choice.
+   */
+  function bindColorPicker() {
+    const dialog = $('#color-dialog');
+    const open = $('#open-colors');
+    if (!dialog || !open) return;
+
+    open.addEventListener('click', () => {
+      if (typeof dialog.showModal === 'function') dialog.showModal();
+      else dialog.setAttribute('open', '');
+      dialog.querySelector('[aria-pressed="true"]')?.focus();
+    });
+
+    const close = () => {
+      if (typeof dialog.close === 'function') dialog.close();
+      else dialog.removeAttribute('open');
+    };
+    for (const btn of dialog.querySelectorAll('[data-close-colors]')) {
+      btn.addEventListener('click', close);
+    }
+    // A click on the dimmed backdrop lands on the dialog element itself.
+    dialog.addEventListener('click', (e) => { if (e.target === dialog) close(); });
+
+    for (const btn of dialog.querySelectorAll('[data-color]')) {
+      btn.addEventListener('click', () => {
+        state.color = btn.dataset.color || null;
+        state.styleTouched = true;
+        close();
+        renderAll();
+        $('#open-colors')?.focus({ preventScroll: true });
+      });
+    }
+  }
+
+  /**
    * Redraw both progress indicators from state - the bar in the header and
    * the rail down the left (CSS shows whichever fits the screen). Cheap, so
    * it runs on every update.
@@ -512,6 +549,7 @@ async function init() {
         if (status) status.innerHTML = warrantyStatus(state.contact);
       });
     }
+    bindColorPicker();
     updateProgress();
     onEstimateComplete();
   }
@@ -590,7 +628,7 @@ async function init() {
       const previousLF = state.measuredLF;
 
       state = readForm(form, state);
-      if (['stories', 'material', 'profile', 'color', 'guards', 'runs', 'corners']
+      if (['stories', 'material', 'profile', 'guards', 'runs', 'corners']
         .includes(e.target?.name)) state.styleTouched = true;
 
       // A hand-typed footage detaches from the measurement and must not be

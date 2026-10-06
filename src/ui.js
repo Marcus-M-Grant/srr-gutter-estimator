@@ -13,7 +13,7 @@ import {
   estimate, availableMaterials, availableProfiles, guardsAvailable,
 } from './estimator.js';
 import { qualifiesForWarranty } from './notify.js';
-import { GUTTER_COLORS, colorsApply, chosenColor } from './colors.js';
+import { GUTTER_COLORS, colorsApply, chosenColor, colorHex } from './colors.js';
 
 export const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -558,24 +558,51 @@ export function renderForm(config, state, measurementHtml = '') {
 }
 
 /**
- * Gutter color, as swatches. Optional: nothing is pre-selected, because a
- * color the customer did not choose should not end up on their estimate.
- * Price does not depend on it.
+ * Gutter color: one button in the form, and the 20 swatches in a panel it
+ * opens. Laid out inline, the swatches made a ragged grid that dominated the
+ * page; behind a button they take one line until the customer wants them.
+ *
+ * Optional, nothing pre-selected - a color the customer did not choose should
+ * not end up on their estimate. Price does not depend on it.
  */
 export function renderColorPicker(state) {
+  const color = chosenColor(state);
+  const hex = colorHex(color);
   return `
     <fieldset class="fieldset">
-      <legend>Gutter color <span class="sub">&mdash; optional, confirm on a real sample</span></legend>
+      <legend>Gutter color <span class="sub">&mdash; optional</span></legend>
+      <button type="button" class="color-pick ${color ? 'has-color' : ''}" id="open-colors"
+              aria-haspopup="dialog">
+        <span class="color-pick__chip ${color ? '' : 'color-pick__chip--any'}"
+              ${hex ? `style="background:${hex}"` : ''} aria-hidden="true"></span>
+        <span class="color-pick__text">${color ? esc(color) : 'Select your gutter color here'}</span>
+        <span class="color-pick__action">${color ? 'Change' : 'Choose'}</span>
+      </button>
+      ${renderColorDialog(color)}
+    </fieldset>`;
+}
+
+export function renderColorDialog(selected) {
+  return `
+    <dialog class="color-dialog" id="color-dialog" aria-labelledby="color-dialog-title">
+      <div class="color-dialog__head">
+        <h3 id="color-dialog-title">Choose your gutter color</h3>
+        <button type="button" class="color-dialog__close" data-close-colors
+                aria-label="Close">&times;</button>
+      </div>
       <div class="colors">
         ${GUTTER_COLORS.map((c) => `
-        <label class="color">
-          <input type="radio" name="color" value="${esc(c.name)}"
-                 ${state.color === c.name ? 'checked' : ''}>
+        <button type="button" class="color" data-color="${esc(c.name)}"
+                aria-pressed="${selected === c.name}">
           <span class="color__chip" style="background:${c.hex}" aria-hidden="true"></span>
           <span class="color__name">${esc(c.name)}</span>
-        </label>`).join('')}
+        </button>`).join('')}
       </div>
-    </fieldset>`;
+      <div class="color-dialog__foot">
+        <p class="hint" style="margin:0">Screen colors are a guide &mdash; we confirm with a real sample.</p>
+        ${selected ? '<button type="button" class="linkish" data-color="">No preference yet</button>' : ''}
+      </div>
+    </dialog>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -900,7 +927,6 @@ export function readForm(form, state) {
     runs: Math.max(1, n('runs', 1)),
     corners: Math.max(0, n('corners', 0)),
     material: form.elements.material?.value ?? state.material,
-    color: form.elements.color?.value || state.color,
     profile: form.elements.profile?.value ?? state.profile,
     guards: form.elements.guards?.checked ?? false,
     lfSource: 'manual',

@@ -171,9 +171,18 @@ test('the color card has all 20 colors, each with a swatch', () => {
   assert.equal(GUTTER_COLORS.length, 20);
   assert.equal(new Set(GUTTER_COLORS.map((c) => c.name)).size, 20);
   for (const c of GUTTER_COLORS) assert.match(c.hex, /^#[0-9A-F]{6}$/);
-  const html = renderColorPicker({ color: 'Musket Brown' });
-  assert.equal((html.match(/name="color"/g) ?? []).length, 20);
-  assert.match(html, /value="Musket Brown"\s+checked/);
+  const html = renderColorPicker({ material: 'Aluminum', color: 'Musket Brown' });
+  assert.equal((html.match(/class="color" data-color=/g) ?? []).length, 20);
+  assert.match(html, /data-color="Musket Brown"\s+aria-pressed="true"/);
+  assert.match(html, /id="open-colors"[\s\S]*Musket Brown[\s\S]*Change/);
+});
+
+test('before a pick, the button invites one and the panel is closed', () => {
+  const html = renderColorPicker({ material: 'Aluminum', color: null });
+  assert.match(html, /Select your gutter color here/);
+  assert.match(html, /<dialog class="color-dialog"(?![^>]*\bopen\b)/);
+  assert.doesNotMatch(html, /aria-pressed="true"/);
+  assert.doesNotMatch(html, /No preference yet/);
 });
 
 test('only a real color on aluminum counts as chosen', () => {
