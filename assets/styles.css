@@ -406,6 +406,39 @@ input:focus, select:focus, button:focus-visible {
   color: var(--blue); font: inherit; text-decoration: underline; cursor: pointer;
 }
 
+/* ---------- address OR linear feet, side by side ---------- */
+.start-split { display: grid; grid-template-columns: 1fr; gap: 6px; margin: 0 0 18px; }
+.start-split__head {
+  margin: 0 0 10px;
+  font-weight: 800;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--blue-deep);
+}
+.start-split__col .field:last-child { margin-bottom: 0; }
+/* Stacked on a phone: a horizontal rule with "or" on it. */
+.start-split__or {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0;
+  color: var(--ink-faint);
+  font-weight: 800;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.start-split__or::before, .start-split__or::after {
+  content: ""; flex: 1; height: 1px; background: var(--line);
+}
+@media (min-width: 720px) {
+  .start-split { grid-template-columns: 1fr auto 1fr; gap: 0 22px; }
+  /* Side by side: the same rule, turned vertical. */
+  .start-split__or { flex-direction: column; margin: 0; }
+  .start-split__or::before, .start-split__or::after { width: 1px; height: auto; }
+}
+
 /* ---------- address block ---------- */
 .addr-grid {
   display: grid;
@@ -842,3 +875,88 @@ table.lines--plain td { border-bottom: 1px solid rgba(0,0,0,.07); padding: 5px 1
   .result__total { font-size: 3.75rem; }
   .qty-grid { grid-template-columns: repeat(4, 1fr); }
 }
+
+/* ---------- progress rail, down the left on wide screens ---------- */
+.rail { display: none; }
+@media (min-width: 1240px) {
+  /* Room beside the 900px column: show the rail, retire the header bar. */
+  .rail:not([hidden]) {
+    display: block;
+    position: fixed;
+    top: 50%;
+    transform: translateY(-50%);
+    left: calc(50% - 450px - 196px);
+    width: 172px;
+    z-index: 30;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow);
+    padding: 16px 14px 14px;
+  }
+  .progress { display: none; }
+}
+.rail__head {
+  margin: 0;
+  font-family: var(--font-head);
+  font-weight: 900;
+  text-transform: uppercase;
+  font-size: 0.82rem;
+  color: var(--blue-deep);
+}
+.rail__msg { margin: 2px 0 12px; font-size: 0.8rem; font-weight: 700; color: var(--orange-dark); }
+.rail__track { position: relative; }
+.rail__bar {
+  /* The line runs from the first dot's centre to the last one's (the dots
+     are 22px, so 11px in from each end, and 9px in to sit under the centre). */
+  position: absolute;
+  left: 9px;
+  top: 11px;
+  bottom: 11px;
+  width: 4px;
+  border-radius: 2px;
+  background: var(--line);
+}
+.rail__fill {
+  width: 100%;
+  background: var(--orange);
+  border-radius: 2px;
+  transition: height 0.4s ease;
+}
+.rail__steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 18px;
+  position: relative;   /* above the line */
+}
+.rail__step button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 0;
+  background: none;
+  border: 0;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--ink-faint);
+  text-align: left;
+  cursor: pointer;
+}
+.rail__dot {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 2px solid var(--line-strong);
+  font-size: 0.7rem;
+}
+.rail__step.is-done button { color: var(--blue); }
+.rail__step.is-done .rail__dot { background: var(--blue); border-color: var(--blue); color: #fff; }
+.rail__step.is-current button { color: var(--blue-deep); }
+.rail__step.is-current .rail__dot { border-color: var(--orange); color: var(--orange-dark); }

@@ -189,3 +189,40 @@ test('the contact block offers the free 10-year warranty, and confirms it', () =
   assert.equal(warrantyStatus({ name: 'Pat' }), '');
   assert.match(warrantyStatus({ name: 'Pat', phone: '(626) 555-0100' }), /You qualify/);
 });
+
+import { renderProgressRail, progressMessage, renderForm, renderResult, initialState } from '../src/ui.js';
+import { buildConfig as buildCfg } from '../src/config.js';
+import { readFileSync as readFs } from 'node:fs';
+
+test('the side rail cheers them on and fills to the step they are on', () => {
+  assert.equal(progressMessage(0, 4), 'Let&rsquo;s get started');
+  assert.equal(progressMessage(2, 4), '2 of 4 done');
+  assert.equal(progressMessage(3, 4), 'Almost done!');
+  assert.equal(progressMessage(4, 4), 'All done!');
+
+  assert.match(renderProgressRail({}), /height:0%/);
+  const two = renderProgressRail({ addressLine: '1 Main St', zip: '91502', measuredLF: 150 });
+  assert.match(two, /height:67%/);
+  assert.match(two, /2 of 4 done/);
+  assert.match(renderProgressRail({ addressLine: '1 Main St', zip: '91502',
+    measuredLF: 150, estimateSaved: true }), /height:100%/);
+});
+
+const cfg = buildCfg(
+  readFs(new URL('./fixtures/pricing.csv', import.meta.url), 'utf8'),
+  readFs(new URL('./fixtures/rules.csv', import.meta.url), 'utf8'), 'test');
+
+test('address and linear feet sit side by side, without the trimmed copy', () => {
+  const html = renderForm(cfg, initialState(cfg));
+  assert.match(html, /Measure from my address[\s\S]*>or<[\s\S]*I know my linear feet/);
+  assert.match(html, /id="measuredLF"/);
+  assert.doesNotMatch(html, /every number stays editable/);
+  assert.doesNotMatch(html, /we will look up your building outline/);
+  assert.doesNotMatch(html, /name="roofType"/);
+});
+
+test('the result offers the PDF only - no clipboard button', () => {
+  const html = renderResult(cfg, { ...initialState(cfg), measuredLF: 180 });
+  assert.match(html, /id="download-sow"/);
+  assert.doesNotMatch(html, /copy-sow|clipboard/i);
+});

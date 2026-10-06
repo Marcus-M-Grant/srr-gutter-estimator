@@ -10,11 +10,13 @@ Original status note: Phase 6 (map and confirm) was built ahead
 of phase 5 because [what phase 4 measured](#what-phase-4-measured) showed the
 confirm step is load-bearing, not cosmetic. Only phase 7 (copy pass) remains.
 
-A customer can type an address, see their building outlined on satellite
-imagery, correct it if we picked the wrong one, switch off walls that have no
-gutter, type their own perimeter, trace their own roof on the satellite
-picture when OpenStreetMap has no outline (or fall back to floor area), pick a roof type, and get an itemized price with a downloadable
-statement of work. Every step shows its working and every step is overridable.
+A customer either types an address or types their linear feet directly. With
+an address they see their building outlined on satellite imagery, correct it if
+we picked the wrong one, switch off walls that have no gutter, or trace their
+own roof when OpenStreetMap has no outline (or fall back to floor area). Roof
+type is not asked; it uses the `gutter_factor_unknown` default. They get an
+itemized price and a downloadable PDF statement of work, with a progress bar
+(header on narrow screens, a rail down the left on wide ones) along the way.
 
 ## Hard constraints this is built under
 
@@ -138,9 +140,8 @@ entirely.
 
 ## Lead capture and email notification
 
-Above the download buttons the customer can optionally add a name, phone and
-email. Whatever they give is printed on the estimate. Every download (PDF or
-clipboard) also posts to `api/estimate-notify.php` on srrgutters.com, which
+Above the download button the customer can optionally add a name, phone and
+email. Whatever they give is printed on the estimate. Every download also posts to `api/estimate-notify.php` on srrgutters.com, which
 emails marcus@ and scheduling@specialistroofing.com with the contact details, address and the
 estimate - including when the contact fields were left blank.
 
@@ -185,8 +186,7 @@ bundle. The `.xlsx` holds `Unit Cost` and must never sit in a public web root.
 
 ### What the .htaccess does
 
-- **Forces HTTPS.** The clipboard button needs a secure context, and a form
-  asking for someone's address should not be served over plain HTTP. Turn on
+- **Forces HTTPS.** A form asking for someone's address should not be served over plain HTTP. Turn on
   free AutoSSL in cPanel first, or the redirect will loop into a cert warning.
 - **Serves code and pricing `no-cache`.** There is no build step and no
   filename hashing, so a cached module is a stale module with no way to bust

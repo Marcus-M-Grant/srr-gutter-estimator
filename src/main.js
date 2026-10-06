@@ -19,7 +19,7 @@ import { buildLead, sendLead, validateContact, cleanContact } from './notify.js'
 import {
   initialState, renderForm, renderResult, renderMeasurement, readForm, esc,
   ROOF_TYPES, fullAddress, addressIsUsable, traceReadout,
-  renderProgress, warrantyStatus,
+  renderProgress, renderProgressRail, warrantyStatus,
 } from './ui.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -475,46 +475,18 @@ async function init() {
     }
   }
 
-  async function copySow() {
-    if (!contactIsValid()) return;
-    let text;
-    try {
-      let result;
-      ({ text, result } = currentSow());
-      notifyLead(result);
-      state.estimateSaved = true;
-      updateProgress();
-    } catch (err) {
-      setSowStatus(`Could not build the document: ${err.message}`);
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(text);
-      setSowStatus('Statement of work copied to the clipboard.');
-    } catch {
-      // Clipboard API needs a secure context and permission; fall back to a
-      // selectable textarea rather than losing the document.
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      ta.setAttribute('readonly', '');
-      ta.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0';
-      document.body.appendChild(ta);
-      ta.select();
-      const ok = document.execCommand?.('copy');
-      ta.remove();
-      setSowStatus(ok
-        ? 'Statement of work copied to the clipboard.'
-        : 'Copying is blocked in this browser. Use Download .txt instead.');
-    }
-  }
-
-  /** Redraw the progress bar from state. Cheap, so it runs on every update. */
+  /**
+   * Redraw both progress indicators from state - the bar in the header and
+   * the rail down the left (CSS shows whichever fits the screen). Cheap, so
+   * it runs on every update.
+   */
   function updateProgress() {
-    const nav = $('#progress');
-    if (!nav) return;
-    nav.innerHTML = renderProgress(state);
-    nav.hidden = false;
-    for (const btn of nav.querySelectorAll('button[data-target]')) {
+    const bar = $('#progress');
+    const rail = $('#progress-rail');
+    if (bar) { bar.innerHTML = renderProgress(state); bar.hidden = false; }
+    if (rail) { rail.innerHTML = renderProgressRail(state); rail.hidden = false; }
+    for (const btn of document.querySelectorAll(
+      '#progress button[data-target], #progress-rail button[data-target]')) {
       btn.addEventListener('click', () => {
         // The estimate step only exists once there is a price; until then,
         // send them to where the price will appear.
@@ -530,7 +502,6 @@ async function init() {
   function updateResult() {
     $('#result').innerHTML = renderResult(config, estimatorInputs());
     $('#download-sow')?.addEventListener('click', downloadSow);
-    $('#copy-sow')?.addEventListener('click', copySow);
     for (const key of ['name', 'phone', 'email']) {
       $(`#contact-${key}`)?.addEventListener('input', (e) => {
         state.contact = { ...state.contact, [key]: e.target.value };
@@ -611,20 +582,8 @@ async function init() {
       });
     }
 
-    // The roof picker lives in the measurement card, OUTSIDE the form, so the
-    // form's own input listener never sees it. Wire it directly.
-    for (const radio of document.querySelectorAll('input[name="roofType"]')) {
-      radio.addEventListener('change', () => {
-        state.roofType = radio.value;
-        state.styleTouched = true;
-        applyMeasurementToLF();
-        renderAll();
-      });
-    }
-
     form.addEventListener('input', (e) => {
       const previousMaterial = state.material;
-      const previousRoof = state.roofType;
       const previousLF = state.measuredLF;
 
       state = readForm(form, state);
@@ -638,7 +597,6 @@ async function init() {
         state.lfSource = 'manual';
       }
 
-      void previousRoof;   // roof type is handled by its own listener above
 
       // Switching material can change which profiles exist, so reconcile the
       // selection before re-rendering rather than quoting a profile the new

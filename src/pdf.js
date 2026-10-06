@@ -5,8 +5,8 @@
  * consistent with everything else here. If jsPDF cannot be loaded the caller
  * falls back to the plain text version rather than leaving the button dead.
  *
- * `sow.js` stays the pure text generator and is still what the clipboard
- * button uses. This module draws the same information, and both read the same
+ * `sow.js` stays the pure text generator and is what the download falls back
+ * to. This module draws the same information, and both read the same
  * estimate result, so they cannot disagree about a number.
  */
 

@@ -204,29 +204,6 @@ function radioGroup(name, options, current) {
     </label>`).join('')}</div>`;
 }
 
-/** Illustrated roof picker. The single biggest lever on the final number. */
-function renderRoofPicker(state, chain) {
-  const muted = chain && chain.roofFactorApplies === false;
-  return `
-  <fieldset class="fieldset ${muted ? 'is-muted' : ''}">
-    <legend>Roof type <span class="sub">&mdash;
-      ${muted
-        ? 'superseded by your wall choices above'
-        : 'changes how much of the outline gets gutter'}</span></legend>
-    <div class="roofs">
-      ${ROOF_TYPES.map((r) => `
-        <label class="roof">
-          <input type="radio" name="roofType" value="${esc(r.value)}"
-                 ${state.roofType === r.value ? 'checked' : ''}>
-          <span class="roof__box">
-            <svg viewBox="0 0 40 30" class="roof__svg" aria-hidden="true">${r.svg}</svg>
-            <span class="roof__label">${esc(r.label)}</span>
-          </span>
-        </label>`).join('')}
-    </div>
-  </fieldset>`;
-}
-
 /**
  * Each wall with its length, so a shared wall, a patio run or a garage side can
  * be switched off. Spec 6.5.
@@ -264,9 +241,7 @@ function renderSides(state, m) {
       </label>`).join('')}
     ${off.size && !overridden ? `
       <p class="hint" style="margin:8px 0 0">
-        ${off.size} wall${off.size > 1 ? 's' : ''} switched off. Because you have
-        said exactly which walls get gutter, the roof-type factor no longer
-        applies on top &mdash; that would subtract the same thing twice.
+        ${off.size} wall${off.size > 1 ? 's' : ''} switched off.
       </p>` : ''}
   </div>`;
 }
@@ -413,14 +388,12 @@ export function renderMeasurement(state, chain) {
     <p class="hint">
       ${m.method === 'sqft'
         ? `Worked out from ${Math.round(m.footprintSqFt)} sq ft of footprint. This is a
-           rough estimate, not a measurement of your building &mdash; adjust anything
-           that looks off.`
+           rough estimate, not a measurement of your building.`
         : m.method === 'traced'
         ? `Measured from the corners you tapped. Switch off any wall without gutter
            below &mdash; a Specialist Roofing estimator confirms exact footage on site.`
-        : `We pulled an approximate outline of the building at that address. Adjust
-           anything that looks off &mdash; a Specialist Roofing estimator confirms exact
-           footage on site.`}
+        : `We pulled an approximate outline of the building at that address. A
+           Specialist Roofing estimator confirms exact footage on site.`}
     </p>
 
     ${m.coords ? `
@@ -434,8 +407,6 @@ export function renderMeasurement(state, chain) {
 
     ${renderSides(state, m)}
 
-    ${renderRoofPicker(state, chain)}
-
     <div class="actions" style="margin-top:4px">
       <button type="button" class="btn btn--primary" id="use-measurement">
         ${state.buildingConfirmed ? 'Footage applied' : 'Yes, use this footage'}
@@ -445,12 +416,6 @@ export function renderMeasurement(state, chain) {
       </button>
     </div>
     ${state.sqFtOpen ? renderSqFtFallback(state) : ''}
-    <p class="hint" style="margin:10px 0 0">
-      ${m.method === 'traced' ? 'This is a starting point from your tracing, not a survey.'
-        : 'This is a starting point from public map data, not a survey.'}
-      ${m.searchRadiusM > 30 ? 'The building sits well back from the road, so we widened the search. ' : ''}
-      You can edit the linear feet below at any time.
-    </p>
   </div>`;
 }
 
@@ -470,67 +435,68 @@ export function renderForm(config, state, measurementHtml = '') {
     <h2>Tell us about the job</h2>
     <p class="hint">
       Start with your address and we will measure the building for you, or skip
-      it and type the linear feet yourself. Either way, every number stays
-      editable.
+      it and type the linear feet yourself.
     </p>
 
-    <div class="field">
-      <label for="addressLine">
-        Street address
-        <span class="sub">&mdash; we will look up your building outline</span>
-      </label>
-      <input type="text" id="addressLine" name="addressLine"
-             autocomplete="address-line1" placeholder="5031 Fair Avenue"
-             value="${esc(state.addressLine ?? '')}">
-    </div>
+    <div class="start-split">
+      <div class="start-split__col">
+        <p class="start-split__head">Measure from my address</p>
+        <div class="field">
+          <label for="addressLine">Street address</label>
+          <input type="text" id="addressLine" name="addressLine"
+                 autocomplete="address-line1" placeholder="5031 Fair Avenue"
+                 value="${esc(state.addressLine ?? '')}">
+        </div>
 
-    <div class="addr-grid">
-      <div class="field">
-        <label for="city">City</label>
-        <input type="text" id="city" name="city" autocomplete="address-level2"
-               placeholder="North Hollywood" value="${esc(state.city ?? '')}">
-      </div>
-      <div class="field">
-        <label for="stateCode">State</label>
-        <input type="text" id="stateCode" name="stateCode" autocomplete="address-level1"
-               maxlength="2" placeholder="CA" value="${esc(state.stateCode ?? '')}">
-      </div>
-      <div class="field">
-        <label for="zip">ZIP</label>
-        <input type="text" id="zip" name="zip" autocomplete="postal-code"
-               inputmode="numeric" maxlength="10" placeholder="91601"
-               value="${esc(state.zip ?? '')}">
-      </div>
-    </div>
+        <div class="addr-grid">
+          <div class="field">
+            <label for="city">City</label>
+            <input type="text" id="city" name="city" autocomplete="address-level2"
+                   placeholder="North Hollywood" value="${esc(state.city ?? '')}">
+          </div>
+          <div class="field">
+            <label for="stateCode">State</label>
+            <input type="text" id="stateCode" name="stateCode" autocomplete="address-level1"
+                   maxlength="2" placeholder="CA" value="${esc(state.stateCode ?? '')}">
+          </div>
+          <div class="field">
+            <label for="zip">ZIP</label>
+            <input type="text" id="zip" name="zip" autocomplete="postal-code"
+                   inputmode="numeric" maxlength="10" placeholder="91601"
+                   value="${esc(state.zip ?? '')}">
+          </div>
+        </div>
 
-    <div class="field">
-      <button type="button" class="btn btn--secondary btn--block" id="lookup-btn"
-              ${state.lookupStatus === 'looking' ? 'disabled' : ''}>
-        ${state.lookupStatus === 'looking'
-          ? 'Looking up your building&hellip;'
-          : 'Find my building'}
-      </button>
-      <p class="hint" style="margin:8px 0 0">
-        Optional &mdash; you can type the linear feet below instead.
-      </p>
+        <button type="button" class="btn btn--secondary btn--block" id="lookup-btn"
+                ${state.lookupStatus === 'looking' ? 'disabled' : ''}>
+          ${state.lookupStatus === 'looking'
+            ? 'Looking up your building&hellip;'
+            : 'Find my building'}
+        </button>
+      </div>
+
+      <div class="start-split__or" aria-hidden="true"><span>or</span></div>
+
+      <div class="start-split__col">
+        <p class="start-split__head">I know my linear feet</p>
+        <div class="field">
+          <label for="measuredLF">
+            Linear feet of gutter
+            <span class="sub">&mdash; total run around the eaves</span>
+          </label>
+          <input type="number" id="measuredLF" name="measuredLF" inputmode="numeric"
+                 min="1" max="5000" step="1" placeholder="e.g. 200"
+                 value="${state.measuredLF ?? ''}">
+          ${state.lfOverridden && state.measurement?.ok ? `
+            <p class="hint" style="margin:6px 0 0">
+              Using your figure. <button type="button" class="linkish"
+                id="recalc-from-address">Recalculate from the address</button>
+            </p>` : ''}
+        </div>
+      </div>
     </div>
 
     ${measurementHtml}
-
-    <div class="field">
-      <label for="measuredLF">
-        Linear feet of gutter
-        <span class="sub">&mdash; total run around the eaves</span>
-      </label>
-      <input type="number" id="measuredLF" name="measuredLF" inputmode="numeric"
-             min="1" max="5000" step="1" placeholder="e.g. 200"
-             value="${state.measuredLF ?? ''}">
-      ${state.lfOverridden && state.measurement?.ok ? `
-        <p class="hint" style="margin:6px 0 0">
-          Using your figure. <button type="button" class="linkish"
-            id="recalc-from-address">Recalculate from the address</button>
-        </p>` : ''}
-    </div>
 
     <fieldset class="fieldset" id="style-step">
       <legend>Number of stories</legend>
@@ -730,7 +696,6 @@ export function renderResult(config, state) {
     ${renderContactFields(state)}
     <div class="actions">
       <button type="button" class="btn btn--primary" id="download-sow">Download PDF</button>
-      <button type="button" class="btn btn--secondary" id="copy-sow">Copy to clipboard</button>
     </div>
     <p class="hint" id="sow-status" role="status" aria-live="polite" style="margin:10px 0 0"></p>
   </section>`;
@@ -784,6 +749,45 @@ export function renderProgress(state) {
       </li>`).join('')}
     </ol>
   </div>`;
+}
+
+/**
+ * The same four steps as a vertical rail down the left of the page, for
+ * screens wide enough to have a margin there. It stays put while the page
+ * scrolls, so "almost done" is always in view - the top bar is easy to stop
+ * noticing. The line fills to the step the customer is on.
+ */
+export function progressMessage(count, total) {
+  if (count >= total) return 'All done!';
+  if (count === total - 1) return 'Almost done!';
+  if (count === 0) return 'Let&rsquo;s get started';
+  return `${count} of ${total} done`;
+}
+
+export function renderProgressRail(state) {
+  const steps = progressSteps(state);
+  const n = steps.length;
+  const count = steps.filter((s) => s.done).length;
+  const fill = Math.round((Math.min(count, n - 1) / (n - 1)) * 100);
+  return `
+    <p class="rail__head">Your estimate</p>
+    <p class="rail__msg">${progressMessage(count, n)}</p>
+    <div class="rail__track">
+    <div class="rail__bar" role="progressbar" aria-label="Estimate progress"
+         aria-valuemin="0" aria-valuemax="${n}" aria-valuenow="${count}">
+      <div class="rail__fill" style="height:${fill}%"></div>
+    </div>
+    <ol class="rail__steps">
+      ${steps.map((s, i) => `
+      <li class="rail__step ${s.done ? 'is-done' : ''} ${s.current ? 'is-current' : ''}">
+        <button type="button" data-target="${s.target}"
+                ${s.current ? 'aria-current="step"' : ''}>
+          <span class="rail__dot" aria-hidden="true">${s.done ? '&#10003;' : i + 1}</span>
+          <span class="rail__label">${esc(s.label)}</span>
+        </button>
+      </li>`).join('')}
+    </ol>
+    </div>`;
 }
 
 /** The live "you qualify" line under the contact fields. */
