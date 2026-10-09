@@ -92,6 +92,9 @@ export const ROOF_TYPES = [
  *
  * Matched on a keyword so any profile the sheet adds still gets a picture.
  */
+// Each entry can take `photo: 'assets/gutters/<name>.jpg'` (480x320, 3:2);
+// the tile then shows the photo in place of the drawing. Use photos SRR owns:
+// the free-licensed ones found so far were too unclear at tile size.
 const PROFILE_ART = [
   {
     match: /half\s*round/i,
@@ -127,8 +130,8 @@ const GENERIC_PROFILE_ART =
 export function profileArt(profile) {
   const hit = PROFILE_ART.find((a) => a.match.test(String(profile ?? '')));
   return hit
-    ? { svg: hit.svg, hint: hit.hint }
-    : { svg: GENERIC_PROFILE_ART, hint: '' };
+    ? { svg: hit.svg, hint: hit.hint, photo: hit.photo ?? null }
+    : { svg: GENERIC_PROFILE_ART, hint: '', photo: null };
 }
 
 /**
@@ -204,6 +207,32 @@ function radioGroup(name, options, current) {
              ${String(o.value) === String(current) ? 'checked' : ''}>
       <span>${esc(o.label)}</span>
     </label>`).join('')}</div>`;
+}
+
+/**
+ * Roof type, as one compact row of four small icon buttons. Only shown with a
+ * measured outline: it decides how much of that outline gets gutter, and has
+ * nothing to act on when the customer typed their linear feet directly.
+ * Defaults to "Not sure", so skipping it is fine.
+ */
+export function renderRoofPicker(state, chain) {
+  const muted = chain && chain.roofFactorApplies === false;
+  return `
+  <fieldset class="fieldset ${muted ? 'is-muted' : ''}">
+    <legend>Roof type${muted
+      ? ' <span class="sub">&mdash; not used, you picked walls</span>' : ''}</legend>
+    <div class="roofs">
+      ${ROOF_TYPES.map((r) => `
+        <label class="roof">
+          <input type="radio" name="roofType" value="${esc(r.value)}"
+                 ${state.roofType === r.value ? 'checked' : ''}>
+          <span class="roof__box">
+            <svg viewBox="0 0 40 30" class="roof__svg" aria-hidden="true">${r.svg}</svg>
+            <span class="roof__label">${esc(r.label)}</span>
+          </span>
+        </label>`).join('')}
+    </div>
+  </fieldset>`;
 }
 
 /**
@@ -408,6 +437,8 @@ export function renderMeasurement(state, chain) {
 
     ${renderSides(state, m)}
 
+    ${m.method === 'sqft' ? '' : renderRoofPicker(state, chain)}
+
     <div class="actions" style="margin-top:4px">
       <button type="button" class="btn btn--primary" id="use-measurement">
         ${state.buildingConfirmed ? 'Footage applied' : 'Yes, use this footage'}
@@ -519,8 +550,12 @@ export function renderForm(config, state, measurementHtml = '') {
           <label class="profile">
             <input type="radio" name="profile" value="${esc(p)}"
                    ${p === state.profile ? 'checked' : ''}>
-            <span class="profile__box">
-              <svg viewBox="0 0 54 40" class="profile__svg" aria-hidden="true">${art.svg}</svg>
+            <span class="profile__box ${art.photo ? 'has-photo' : ''}">
+              ${art.photo
+                ? `<img class="profile__photo" src="${art.photo}" alt=""
+                        width="480" height="320">`
+                : `<span class="profile__drawing"><svg viewBox="0 0 54 40" class="profile__svg"
+                        aria-hidden="true">${art.svg}</svg></span>`}
               <span class="profile__name">${esc(p)}</span>
               ${art.hint ? `<span class="profile__hint">${esc(art.hint)}</span>` : ''}
             </span>

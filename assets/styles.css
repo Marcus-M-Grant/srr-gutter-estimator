@@ -788,7 +788,26 @@ input:focus, select:focus, button:focus-visible {
   transition: background .12s, border-color .12s, color .12s;
 }
 .profile__svg { width: 58px; height: 42px; display: block; }
-.profile__name { font-weight: 700; font-size: 0.86rem; text-align: center; }
+/* Photo tiles: the picture fills the top of the tile at a fixed 3:2, and the
+   drawn outline (styles with no photo) gets the same box so tiles line up. */
+.profile__box.has-photo, .profile__box:has(.profile__drawing) { padding-top: 6px; }
+.profile__photo, .profile__drawing {
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  height: auto;
+  border-radius: 2px;
+  margin-bottom: 6px;
+}
+.profile__photo { object-fit: cover; background: var(--line); }
+.profile__drawing {
+  display: grid;
+  place-items: center;
+  background: #f2f5fb;
+}
+.profile input:checked + .profile__box .profile__drawing { background: rgba(255,255,255,0.12); }
+
+.profile__name { font-weight: 700; font-size: 0.8rem; text-align: center; line-height: 1.2; }
 .profile__hint {
   font-size: 0.72rem;
   font-weight: 500;
@@ -805,15 +824,15 @@ input:focus, select:focus, button:focus-visible {
 }
 .profile__box:hover { border-color: var(--blue); }
 
-/* ---------- roof picker ---------- */
-.roofs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+/* ---------- roof picker: one compact row of four ---------- */
+.roofs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
 .roof input { position: absolute; opacity: 0; pointer-events: none; }
 .roof__box {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 10px 6px;
+  gap: 2px;
+  padding: 6px 4px 5px;
   border: 1.5px solid var(--line-strong);
   border-radius: var(--radius);
   cursor: pointer;
@@ -821,8 +840,8 @@ input:focus, select:focus, button:focus-visible {
   background: var(--surface);
   transition: background .12s, border-color .12s, color .12s;
 }
-.roof__svg { width: 46px; height: 34px; display: block; }
-.roof__label { font-weight: 700; font-size: 0.85rem; }
+.roof__svg { width: 30px; height: 22px; display: block; }
+.roof__label { font-weight: 700; font-size: 0.74rem; }
 .roof input:checked + .roof__box {
   background: var(--blue); border-color: var(--blue); color: #fff;
 }
@@ -982,8 +1001,8 @@ table.lines--plain td { border-bottom: 1px solid rgba(0,0,0,.07); padding: 5px 1
   .hero { padding: 48px 0 42px; }
   .table-scroll { margin: 0; padding: 0; }
   .map { height: 340px; }
-  .roofs { grid-template-columns: repeat(4, 1fr); }
-  .profiles { grid-template-columns: repeat(3, 1fr); }
+  /* One row of five photo tiles keeps the section short. */
+  .profiles { grid-template-columns: repeat(5, minmax(0, 1fr)); }
   .assumptions { grid-template-columns: 1fr 1.4fr; column-gap: 18px; }
   .assumptions dt { padding: 9px 0; border-bottom: 1px solid var(--line); }
   .assumptions dd { padding: 9px 0; }

@@ -235,3 +235,19 @@ test('"Is this your building?" carries no explanation paragraph', () => {
   assert.doesNotMatch(html, /We pulled an approximate outline/);
   assert.doesNotMatch(html, /class="hint"/);
 });
+
+import { renderRoofPicker } from '../src/ui.js';
+
+test('roof type is back under a measured outline, as four small buttons', () => {
+  const html = renderMeasurement({ roofType: 'unknown', measurement: {
+    ok: true, method: 'osm', coords: [{ lat: 0, lon: 0 }], sides: [], confidence: 'likely',
+  } }, null);
+  assert.equal((html.match(/name="roofType"/g) ?? []).length, 4);
+  assert.match(html, /value="unknown"\s+checked/);
+  // Not offered for a floor-area estimate, and never in the main form.
+  const sqft = renderMeasurement({ measurement: {
+    ok: true, method: 'sqft', footprintSqFt: 1200, sides: [], coords: null,
+  } }, null);
+  assert.doesNotMatch(sqft, /name="roofType"/);
+  assert.doesNotMatch(renderRoofPicker({ roofType: 'hip' }, null), /changes how much/);
+});

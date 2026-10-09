@@ -615,6 +615,16 @@ async function init() {
       renderAll();
     });
 
+    // Roof type re-applies the measurement, so it gets its own listener.
+    for (const radio of document.querySelectorAll('input[name="roofType"]')) {
+      radio.addEventListener('change', () => {
+        state.roofType = radio.value;
+        state.styleTouched = true;
+        applyMeasurementToLF();
+        renderAll();
+      });
+    }
+
     // Geocode on submit only. Never on keystroke - per-keystroke autocomplete
     // is an explicit violation of Nominatim's usage policy.
     for (const name of ['addressLine', 'city', 'stateCode', 'zip']) {
